@@ -25,7 +25,7 @@ public class AlphaCharEditor {
 		File file2 = new File("alphabet2.txt");
 		AlphaCharIO.test(alphabet, file1, file2);
 		
-		HashMap<Character, Form[]> alphabet2 = AlphaCharIO.readAlphaCharFont("default");
+		HashMap<Character, Form[]> alphabet2 = AlphaCharIO.readDefaultAlphaCharFont();
 		if (alphabet2==null) {
 			System.out.println("No \"default\" font.");
 		} else {
