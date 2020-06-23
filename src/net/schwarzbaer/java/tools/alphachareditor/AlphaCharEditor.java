@@ -3,6 +3,9 @@ package net.schwarzbaer.java.tools.alphachareditor;
 import java.io.File;
 import java.util.HashMap;
 
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+
 import net.schwarzbaer.image.alphachar.AlphaCharIO;
 import net.schwarzbaer.image.alphachar.Form;
 
@@ -13,8 +16,17 @@ public class AlphaCharEditor {
 	}
 
 	public static void main(String[] args) {
+		try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
+		catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {}
 		
 		// TODO Auto-generated method stub
+		//testAlphaCharIO();
+		
+		new AlphaCharEditor().createGUI();
+	}
+
+	@SuppressWarnings("unused")
+	private static void testAlphaCharIO() {
 		HashMap<Character,Form[]> alphabet = new HashMap<Character,Form[]>();
 		alphabet.put('X',new Form[] { new Form.Line(0, 0,50,100), new Form.Line(50, 0,0,100) });
 		alphabet.put('x',new Form[] { new Form.Line(0,40,50,100), new Form.Line(50,40,0,100) });
@@ -25,12 +37,14 @@ public class AlphaCharEditor {
 		File file2 = new File("alphabet2.txt");
 		AlphaCharIO.test(alphabet, file1, file2);
 		
-		HashMap<Character, Form[]> alphabet2 = AlphaCharIO.readDefaultAlphaCharFont();
-		if (alphabet2==null) {
-			System.out.println("No \"default\" font.");
-		} else {
-			File file3 = new File("alphabet3.txt");
-			AlphaCharIO.writeAlphaCharToFile(file3, alphabet2);
-		}
+		File file3 = new File("alphabet3.txt");
+		AlphaCharIO.rewriteDefaultAlphaCharFont(file3);
+	}
+
+	@SuppressWarnings("unused")
+	private MainWindow mainwindow;
+
+	private void createGUI() {
+		mainwindow = new MainWindow("AlphaChar Editor");
 	}
 }
