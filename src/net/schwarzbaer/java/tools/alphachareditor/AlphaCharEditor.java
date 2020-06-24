@@ -41,10 +41,14 @@ public class AlphaCharEditor {
 		AlphaCharIO.rewriteDefaultAlphaCharFont(file3);
 	}
 
-	@SuppressWarnings("unused")
-	private MainWindow mainwindow;
+	MainWindow mainwindow = null;
+	HashMap<Character, Form[]> font = null;
 
 	private void createGUI() {
-		mainwindow = new MainWindow("AlphaChar Editor");
+		mainwindow = new MainWindow(this,"AlphaChar Editor");
+	}
+
+	public void loadDefaultFont() {
+		font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory());
 	}
 }

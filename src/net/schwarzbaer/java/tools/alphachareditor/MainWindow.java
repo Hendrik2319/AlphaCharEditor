@@ -11,8 +11,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import javax.swing.BorderFactory;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -20,6 +22,7 @@ import javax.swing.JPanel;
 
 import net.schwarzbaer.gui.Canvas;
 import net.schwarzbaer.gui.StandardMainWindow;
+import net.schwarzbaer.image.alphachar.Form;
 
 class MainWindow extends StandardMainWindow {
 	private static final long serialVersionUID = 313126168052969131L;
@@ -27,18 +30,30 @@ class MainWindow extends StandardMainWindow {
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
 	}
+	
+	private AlphaCharEditor alphaCharEditor;
+	private CharRaster charRaster;
+	private EditorView editorView;
+	private Character selectedChar;
 
-	MainWindow(String title) {
+	MainWindow(AlphaCharEditor alphaCharEditor, String title) {
 		super(title);
+		this.alphaCharEditor = alphaCharEditor;
 		
-		EditorView editorView = new EditorView();
+		editorView = new EditorView();
 		editorView.setPreferredSize(500, 300);
 		
-		CharRaster charRaster = new CharRaster(ch->System.out.printf("Selected Char: %s%n", ch));
-		charRaster.setPreferredSize(200, 300);
+		selectedChar = null;
+		charRaster = new CharRaster(ch->{
+			selectedChar=ch;
+			Form[] forms = this.alphaCharEditor.font==null ? null : this.alphaCharEditor.font.get(selectedChar);
+			System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
+			editorView.setForms(forms);
+		});
 		
 		JPanel leftPanel = new JPanel(new BorderLayout(3,3));
-		leftPanel.add(charRaster,BorderLayout.CENTER);
+		leftPanel.add(charRaster,BorderLayout.NORTH);
+		leftPanel.add(new JLabel(),BorderLayout.CENTER);
 		
 		JPanel contentPane = new JPanel(new BorderLayout(3,3));
 		contentPane.setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
@@ -56,15 +71,18 @@ class MainWindow extends StandardMainWindow {
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
 		fontMenu.add(createMenuItem("Load Font ...",e->{}));
-		fontMenu.add(createMenuItem("Load Default Font",e->loadDefaultFont()));
+		fontMenu.add(createMenuItem("Load Default Font",e->{
+			alphaCharEditor.loadDefaultFont();
+			updateAfterFontLoad();
+		}));
 		fontMenu.add(createMenuItem("Save Font",e->{}));
 		fontMenu.add(createMenuItem("Save Font As ...",e->{}));
 		
 		return menuBar;
 	}
 
-	private void loadDefaultFont() {
-		// TODO Auto-generated method stub
+	private void updateAfterFontLoad() {
+		charRaster.updateCharList(alphaCharEditor.font);
 	}
 
 	private JMenuItem createMenuItem(String title, ActionListener al) {
@@ -74,17 +92,22 @@ class MainWindow extends StandardMainWindow {
 	}
 	
 	private static class CharRaster extends Canvas {
-		private static final Color COLOR_TEXT = Color.BLACK;
-		private static final Color COLOR_BACKGROUND = Color.WHITE;
-		private static final Color COLOR_FIELD_BACKGROUND  = new Color(0xf0f0f0);
-		private static final Color COLOR_FIELD_HIGHLIGHTED = Color.CYAN;
-		private static final Color COLOR_FIELD_SELECTED = Color.GREEN;
+		private static final Color COLOR_TEXT           = Color.BLACK;
+		private static final Color COLOR_TEXT_NOTEXISTS = Color.LIGHT_GRAY;
+		private static final Color COLOR_BACKGROUND     = Color.WHITE;
+		private static final Color COLOR_CHAR_EXISTS      = new Color(0xf0f0f0);
+		private static final Color COLOR_CHAR_HIGHLIGHTED = Color.CYAN;
+		private static final Color COLOR_CHAR_SELECTED    = Color.GREEN;
 
 		private static final long serialVersionUID = 6444819062135187504L;
 		
 		private final char[][] chars;
+		private final boolean[][] charExist;
 		private final int fieldWidth;
 		private final int fieldHeight;
+		private final int offsetX;
+		private final int offsetY;
+		private final int border;
 
 		private Rectangle view = null;
 		private Point highlightedField = null;
@@ -96,16 +119,26 @@ class MainWindow extends StandardMainWindow {
 		CharRaster(SelectionListener listener) {
 			this.listener = listener;
 			Assert(this.listener!=null);
-			this.fieldWidth = 20;
-			this.fieldHeight = 16;
+			this.fieldWidth  = 20;
+			this.fieldHeight = 18;
+			this.offsetX =  7;
+			this.offsetY = 13;
+			this.border = 3;
 			chars = new char[][] {
 				createCharArray('A','Z'),
 				createCharArray('a','z'),
 				createCharArray('0','9'),
 				new char[] { 'ä','ö','ü', 'Ä','Ö','Ü', 'ß' }
 			};
+			
 			rows = new int[chars.length];
 			Arrays.fill(rows,0);
+			
+			charExist = new boolean[chars.length][];
+			for (int i=0; i<charExist.length; i++) {
+				charExist[i] = new boolean[chars[i].length];
+				Arrays.fill(charExist[i],false);
+			}
 			
 			MouseAdapter m = new MouseAdapter() {
 				@Override public void mouseClicked(MouseEvent e) { setSelectedField   (e.getPoint()); }
@@ -115,8 +148,19 @@ class MainWindow extends StandardMainWindow {
 			};
 			addMouseListener(m);
 			addMouseMotionListener(m);
+			
+			setPreferredSize(2*border + 10*fieldWidth, 2*border +  8*fieldHeight);
 		}
-		
+
+		public void updateCharList(HashMap<Character, Form[]> font) {
+			for (int b=0; b<charExist.length; b++) {
+				for (int ch=0; ch<charExist[b].length; ch++) {
+					Form[] forms = font==null ? null : font.get(chars[b][ch]);
+					charExist[b][ch] = forms!=null;
+				}
+			}
+		}
+
 		interface SelectionListener {
 			void selectedCharChanged(Character selectedChar);
 		}
@@ -209,23 +253,23 @@ class MainWindow extends StandardMainWindow {
 				
 				int iy = 0;
 				for (int b=0; b<chars.length; b++) {
-					char[] block = chars[b];
 					int ix = 0;
 					rows[b] = iy;
-					for (int i=0; i<block.length; i++) {
-						if ((ix+1)*fieldWidth>width) { ++iy; ix=0; }
-						char ch = block[i];
+					for (int i=0; i<chars[b].length; i++) {
+						if ((ix+1)*fieldWidth>width-2*border) { ++iy; ix=0; }
+						char ch = chars[b][i];
+						boolean exist = charExist[b][i];
 						Color color;
 						if (selectedField!=null && selectedField.x==ix && selectedField.y==iy)
-							color = COLOR_FIELD_SELECTED;
+							color = COLOR_CHAR_SELECTED;
 						else if (highlightedField!=null && highlightedField.x==ix && highlightedField.y==iy)
-							color = COLOR_FIELD_HIGHLIGHTED;
+							color = COLOR_CHAR_HIGHLIGHTED;
 						else
-							color = COLOR_FIELD_BACKGROUND;
+							color = exist ? COLOR_CHAR_EXISTS : COLOR_BACKGROUND;
 						g2.setPaint(color);
-						g2.fillRect(ix*fieldWidth+1, iy*fieldHeight+1, fieldWidth-2, fieldHeight-2);
-						g2.setPaint(COLOR_TEXT);
-						g2.drawString(Character.toString(ch), ix*fieldWidth+7, iy*fieldHeight+13);
+						g2.fillRect(border+ix*fieldWidth+1, border+iy*fieldHeight+1, fieldWidth-2, fieldHeight-2);
+						g2.setPaint(exist ? COLOR_TEXT : COLOR_TEXT_NOTEXISTS);
+						g2.drawString(Character.toString(ch), border+ix*fieldWidth+offsetX, border+iy*fieldHeight+offsetY);
 						++ix;
 					}
 					++iy;
