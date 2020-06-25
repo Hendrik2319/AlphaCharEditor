@@ -31,29 +31,13 @@ public interface LineForm {
 	void drawPoints(Graphics2D g2, ViewState viewState);
 	public Double getDistance(float x, float y, float maxDist);
 	
-	public static class Math2 {
-
-		public static double dist(double xC, double yC, double x, double y) {
-			double localX = x-xC;
-			double localY = y-yC;
-			return Math.sqrt(localX*localX+localY*localY);
-		}
-		
-		public static double angle(double xC, double yC, double x, double y) {
-			double localX = x-xC;
-			double localY = y-yC;
-			return Math.atan2(localY, localX);
-		}
-		
-	}
-	
 	public static class Factory implements Form.Factory {
 		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(values); }
 		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(values); }
 		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(values); }
 	}
 	
-	public class PolyLine extends Form.PolyLine implements LineForm {
+	public static class PolyLine extends Form.PolyLine implements LineForm {
 		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
 		
 		@Override
@@ -95,7 +79,12 @@ public interface LineForm {
 		}
 	}
 	
-	public class Line extends Form.Line implements LineForm {
+	public static class Line extends Form.Line implements LineForm {
+		
+		enum SelectedPoint { P1,P2 } 
+		
+		SelectedPoint selectedPoint = null; 
+		
 		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
@@ -143,7 +132,7 @@ public interface LineForm {
 		}
 	}
 	
-	public class Arc extends Form.Arc implements LineForm {
+	public static class Arc extends Form.Arc implements LineForm {
 
 		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
 		

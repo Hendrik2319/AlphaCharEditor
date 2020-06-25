@@ -13,6 +13,8 @@ import net.schwarzbaer.image.alphachar.Form;
 
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
+	static final int MAX_NEAR_DISTANCE = 20;
+
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
 	}
@@ -33,23 +35,18 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		forms = null;
 		highlighted = null;
 		editing = null;
-		
-		MouseAdapter m = new MouseAdapter() {
-			@Override public void mouseClicked (MouseEvent e) { if (editing != null) editing.onClicked (e); else setSelected   (e.getPoint()); }
-			@Override public void mouseEntered (MouseEvent e) { if (editing != null) editing.onEntered (e); else setHighlighted(e.getPoint()); }
-			@Override public void mouseMoved   (MouseEvent e) { if (editing != null) editing.onMoved   (e); else setHighlighted(e.getPoint()); }
-			@Override public void mouseExited  (MouseEvent e) { if (editing != null) editing.onExited  (e); else setHighlighted(null        ); }
-			@Override public void mousePressed (MouseEvent e) { if (editing != null) editing.onPressed (e); }
-			@Override public void mouseReleased(MouseEvent e) { if (editing != null) editing.onReleased(e); }
-			@Override public void mouseDragged (MouseEvent e) { if (editing != null) editing.onDragged (e); }
-			
-		};
-		addMouseListener(m);
-		addMouseMotionListener(m);
 	}
 	
+	@Override public void mouseClicked (MouseEvent e) { if (editing!=null) editing.onClicked (e); else setSelected   (e.getPoint()); }
+	@Override public void mouseEntered (MouseEvent e) { if (editing!=null) editing.onEntered (e); else setHighlighted(e.getPoint()); }
+	@Override public void mouseMoved   (MouseEvent e) { if (editing!=null) editing.onMoved   (e); else setHighlighted(e.getPoint()); }
+	@Override public void mouseExited  (MouseEvent e) { if (editing!=null) editing.onExited  (e); else setHighlighted(null        ); }
+	@Override public void mousePressed (MouseEvent e) { if (editing==null || !editing.onPressed (e)) super.mousePressed (e); }
+	@Override public void mouseReleased(MouseEvent e) { if (editing==null || !editing.onReleased(e)) super.mouseReleased(e); }
+	@Override public void mouseDragged (MouseEvent e) { if (editing==null || !editing.onDragged (e)) super.mouseDragged (e); }
+	
 	protected void setSelected(Point p) {
-		editing = LineFormEditing.create(getNext(p));
+		editing = LineFormEditing.create(getNext(p),viewState);
 		highlighted = null;
 		repaint();
 	}
@@ -67,7 +64,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		
 		Double minDist = null;
 		LineForm nearest = null;
-		float maxDist = viewState.convertLength_ScreenToLength(20);
+		float maxDist = viewState.convertLength_ScreenToLength(MAX_NEAR_DISTANCE);
 		float x = viewState.convertPos_ScreenToAngle_LongX(p.x);
 		float y = viewState.convertPos_ScreenToAngle_LatY (p.y);
 		//System.out.printf(Locale.ENGLISH, "getNext: %f,%f (max:%f)%n", x,y,maxDist);
