@@ -10,9 +10,6 @@ import java.awt.event.MouseEvent;
 
 import net.schwarzbaer.gui.ZoomableCanvas;
 import net.schwarzbaer.image.alphachar.Form;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.PolyLine;
 
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
@@ -38,10 +35,14 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		editing = null;
 		
 		MouseAdapter m = new MouseAdapter() {
-			@Override public void mouseClicked(MouseEvent e) { if (editing==null) setSelected   (e.getPoint()); else editing.onClicked(e); }
-			@Override public void mouseEntered(MouseEvent e) { if (editing==null) setHighlighted(e.getPoint()); else editing.onEntered(e); }
-			@Override public void mouseMoved  (MouseEvent e) { if (editing==null) setHighlighted(e.getPoint()); else editing.onMoved  (e); }
-			@Override public void mouseExited (MouseEvent e) { if (editing==null) setHighlighted(null        ); else editing.onExited (e); }
+			@Override public void mouseClicked (MouseEvent e) { if (editing != null) editing.onClicked (e); else setSelected   (e.getPoint()); }
+			@Override public void mouseEntered (MouseEvent e) { if (editing != null) editing.onEntered (e); else setHighlighted(e.getPoint()); }
+			@Override public void mouseMoved   (MouseEvent e) { if (editing != null) editing.onMoved   (e); else setHighlighted(e.getPoint()); }
+			@Override public void mouseExited  (MouseEvent e) { if (editing != null) editing.onExited  (e); else setHighlighted(null        ); }
+			@Override public void mousePressed (MouseEvent e) { if (editing != null) editing.onPressed (e); }
+			@Override public void mouseReleased(MouseEvent e) { if (editing != null) editing.onReleased(e); }
+			@Override public void mouseDragged (MouseEvent e) { if (editing != null) editing.onDragged (e); }
+			
 		};
 		addMouseListener(m);
 		addMouseMotionListener(m);
@@ -122,14 +123,28 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			
 			drawMapDecoration(g2, x, y, width, height);
 			
+			LineForm selectedForm = editing==null ? null : editing.form;
 			if (forms!=null)
 				for (LineForm form:forms)
-					form.draw(g2,viewState,editing!=null && form==editing.form,form==highlighted);
+					if (form!=selectedForm && form!=highlighted) form.drawLines(g2,viewState,false,false);
+			if (selectedForm!=null) { selectedForm.drawLines(g2,viewState,true ,false); selectedForm.drawPoints(g2, viewState); }
+			if (highlighted !=null) { highlighted .drawLines(g2,viewState,false,true ); highlighted .drawPoints(g2, viewState); }
 		}
 		
 	}
 	
 	
+	public static void drawPoint(Graphics2D g2, int x, int y) {
+		int radius = 3;
+//		G2.SETCOLOR(COLOR.BLACK);
+//		G2.SETXORMODE(COLOR.WHITE);
+		g2.setColor(Color.GREEN);
+		g2.fillOval(x-radius+1, y-radius+1, 2*radius-1, 2*radius-1);
+		g2.setColor(Color.BLACK);
+		g2.drawOval(x-radius, y-radius, 2*radius, 2*radius);
+//		g2.setPaintMode();
+	}
+
 	@Override
 	protected ViewState createViewState() {
 		return new ViewState(this);
@@ -150,29 +165,5 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			max.latitude_y  = (float) 200;
 			max.longitude_x = (float) 400;
 		}
-	}
-	
-	private static class LineFormEditing<FormType extends LineForm> {
-		
-		FormType form;
-		LineFormEditing(FormType form) {
-			this.form = form;
-		}
-		
-		public void onExited (MouseEvent e) {}
-		public void onMoved  (MouseEvent e) {}
-		public void onEntered(MouseEvent e) {}
-		public void onClicked(MouseEvent e) {}
-
-		static LineFormEditing<?> create(LineForm form) {
-			if (form instanceof PolyLine) return new PolyLineEditing((PolyLine) form);
-			if (form instanceof Line    ) return new     LineEditing((Line    ) form);
-			if (form instanceof Arc     ) return new      ArcEditing((Arc     ) form);
-			return null;
-		}
-
-		static class PolyLineEditing extends LineFormEditing<PolyLine> { public PolyLineEditing(PolyLine polyLine) { super(polyLine); } }
-		static class     LineEditing extends LineFormEditing<Line    > { public     LineEditing(Line     line    ) { super(line    ); } }
-		static class      ArcEditing extends LineFormEditing<Arc     > { public      ArcEditing(Arc      arc     ) { super(arc     ); } }
 	}
 }

@@ -15,7 +15,20 @@ public interface LineForm {
 	static final Color COLOR_HIGHLIGHTED = Color.BLUE;
 	static final Color COLOR_STANDARD    = Color.BLACK;
 
-	public void draw(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted);
+	public default void drawLines(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
+		Stroke prevStroke = g2.getStroke();
+		if (isSelected||isHighlighted) {
+			g2.setStroke(STROKE_HIGHLIGHTED);
+			g2.setColor(COLOR_HIGHLIGHTED);
+		} else {
+			g2.setStroke(STROKE_STANDARD);
+			g2.setColor(COLOR_STANDARD);
+		}
+		drawLines(g2, viewState);
+		g2.setStroke(prevStroke);
+	}
+	void drawLines (Graphics2D g2, ViewState viewState);
+	void drawPoints(Graphics2D g2, ViewState viewState);
 	public Double getDistance(float x, float y, float maxDist);
 	
 	public static class Math2 {
@@ -59,15 +72,15 @@ public interface LineForm {
 			return minDist;
 		}
 
-		@Override
-		public void draw(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
-			if (isSelected||isHighlighted) {
-				g2.setStroke(STROKE_HIGHLIGHTED);
-				g2.setColor(COLOR_HIGHLIGHTED);
-			} else {
-				g2.setStroke(STROKE_STANDARD);
-				g2.setColor(COLOR_STANDARD);
+		@Override public void drawPoints(Graphics2D g2, ViewState viewState) {
+			for (Point p1:points) {
+				int x = viewState.convertPos_AngleToScreen_LongX((float) p1.x);
+				int y = viewState.convertPos_AngleToScreen_LatY ((float) p1.y);
+				EditorView.drawPoint(g2,x,y);
 			}
+		}
+
+		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			Point p = points.get(0);
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) p.x);
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
@@ -85,15 +98,7 @@ public interface LineForm {
 	public class Line extends Form.Line implements LineForm {
 		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
 
-		@Override
-		public void draw(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
-			if (isSelected||isHighlighted) {
-				g2.setStroke(STROKE_HIGHLIGHTED);
-				g2.setColor(COLOR_HIGHLIGHTED);
-			} else {
-				g2.setStroke(STROKE_STANDARD);
-				g2.setColor(COLOR_STANDARD);
-			}
+		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
 			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
@@ -101,6 +106,16 @@ public interface LineForm {
 			g2.drawLine(x1s,y1s,x2s,y2s);
 		}
 		
+		@Override
+		public void drawPoints(Graphics2D g2, ViewState viewState) {
+			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
+			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
+			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
+			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
+			EditorView.drawPoint(g2,x1s,y1s);
+			EditorView.drawPoint(g2,x2s,y2s);
+		}
+
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
 			return getDistance(x1, y1, x2, y2, x, y, maxDist);
@@ -131,16 +146,9 @@ public interface LineForm {
 	public class Arc extends Form.Arc implements LineForm {
 
 		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
-
+		
 		@Override
-		public void draw(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
-			if (isSelected||isHighlighted) {
-				g2.setStroke(STROKE_HIGHLIGHTED);
-				g2.setColor(COLOR_HIGHLIGHTED);
-			} else {
-				g2.setStroke(STROKE_STANDARD);
-				g2.setColor(COLOR_STANDARD);
-			}
+		public void drawLines(Graphics2D g2, ViewState viewState) {
 			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
 			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
 			int rs  = viewState.convertLength_LengthToScreen((float) r);
@@ -148,7 +156,20 @@ public interface LineForm {
 			int arcAngle   = (int) Math.round((aEnd-aStart)*180/Math.PI);
 			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
 		}
-		
+
+		@Override
+		public void drawPoints(Graphics2D g2, ViewState viewState) {
+			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
+			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
+			int xSs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aStart)));
+			int ySs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aStart)));
+			int xEs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aEnd  )));
+			int yEs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aEnd  )));
+			EditorView.drawPoint(g2,xSs,ySs);
+			EditorView.drawPoint(g2,xEs,yEs);
+			EditorView.drawPoint(g2,xCs,yCs);
+		}
+
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
 			double dC = Math2.dist(xC,yC,x,y);
