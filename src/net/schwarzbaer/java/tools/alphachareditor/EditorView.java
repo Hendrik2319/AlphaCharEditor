@@ -5,8 +5,10 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.function.Consumer;
+
+import javax.swing.JPanel;
 
 import net.schwarzbaer.gui.ZoomableCanvas;
 import net.schwarzbaer.image.alphachar.Form;
@@ -25,19 +27,23 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private static final Color COLOR_BACKGROUND = Color.WHITE;
 	private static final Color COLOR_GUIDELINES      = new Color(0xf0f0f0);
 
-	private LineForm[] forms;
-	private LineForm highlighted;
-	private LineFormEditing<?> editing;
+	private LineForm[] forms = null;
+	private LineForm highlighted = null;
+	private LineFormEditing<?> editing = null;
+	private Consumer<JPanel> setValuePanel = null;
 	
 	EditorView() {
 		activateMapScale(COLOR_AXIS, "px");
 		activateAxes(COLOR_AXIS, true,true,true,true);
-		forms = null;
-		highlighted = null;
-		editing = null;
 	}
 	
-	@Override public void mouseClicked (MouseEvent e) { if (editing!=null) editing.onClicked (e); else setSelected   (e.getPoint()); }
+	ViewState getViewState() { return viewState; }
+
+	public void setValuePanelChangeFcn(Consumer<JPanel> setValuePanel) {
+		this.setValuePanel = setValuePanel;
+	}
+
+	@Override public void mouseClicked (MouseEvent e) { if (editing!=null) deselect();            else setSelected(e); }
 	@Override public void mouseEntered (MouseEvent e) { if (editing!=null) editing.onEntered (e); else setHighlighted(e.getPoint()); }
 	@Override public void mouseMoved   (MouseEvent e) { if (editing!=null) editing.onMoved   (e); else setHighlighted(e.getPoint()); }
 	@Override public void mouseExited  (MouseEvent e) { if (editing!=null) editing.onExited  (e); else setHighlighted(null        ); }
@@ -45,8 +51,13 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	@Override public void mouseReleased(MouseEvent e) { if (editing==null || !editing.onReleased(e)) super.mouseReleased(e); }
 	@Override public void mouseDragged (MouseEvent e) { if (editing==null || !editing.onDragged (e)) super.mouseDragged (e); }
 	
-	protected void setSelected(Point p) {
-		editing = LineFormEditing.create(getNext(p),viewState);
+	private void deselect() {
+		editing=null;
+		setValuePanel.accept(null);
+	}
+	protected void setSelected(MouseEvent e) {
+		editing = LineFormEditing.create(getNext(e.getPoint()),viewState,this,e);
+		if (editing!=null) setValuePanel.accept(editing.createValuePanel());
 		highlighted = null;
 		repaint();
 	}
@@ -131,11 +142,11 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 	
 	
-	public static void drawPoint(Graphics2D g2, int x, int y) {
+	public static void drawPoint(Graphics2D g2, int x, int y, boolean highlighted) {
 		int radius = 3;
 //		G2.SETCOLOR(COLOR.BLACK);
 //		G2.SETXORMODE(COLOR.WHITE);
-		g2.setColor(Color.GREEN);
+		g2.setColor(highlighted ? Color.GREEN : Color.WHITE);
 		g2.fillOval(x-radius+1, y-radius+1, 2*radius-1, 2*radius-1);
 		g2.setColor(Color.BLACK);
 		g2.drawOval(x-radius, y-radius, 2*radius, 2*radius);

@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -35,6 +36,7 @@ class MainWindow extends StandardMainWindow {
 	private CharRaster charRaster;
 	private EditorView editorView;
 	private Character selectedChar;
+	private JComponent valuePanel = null;
 
 	MainWindow(AlphaCharEditor alphaCharEditor, String title) {
 		super(title);
@@ -42,6 +44,9 @@ class MainWindow extends StandardMainWindow {
 		
 		editorView = new EditorView();
 		editorView.setPreferredSize(500, 300);
+		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
+		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
+		editorViewPanel.add(editorView,BorderLayout.CENTER);
 		
 		selectedChar = null;
 		charRaster = new CharRaster(ch->{
@@ -50,15 +55,25 @@ class MainWindow extends StandardMainWindow {
 			System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
 			editorView.setForms(forms);
 		});
+		JPanel charRasterPanel = new JPanel(new BorderLayout(3,3));
+		charRasterPanel.setBorder(BorderFactory.createTitledBorder("Characters"));
+		charRasterPanel.add(charRaster,BorderLayout.CENTER);
 		
 		JPanel leftPanel = new JPanel(new BorderLayout(3,3));
-		leftPanel.add(charRaster,BorderLayout.NORTH);
-		leftPanel.add(new JLabel(),BorderLayout.CENTER);
+		leftPanel.add(charRasterPanel,BorderLayout.NORTH);
+		leftPanel.add(valuePanel = new JLabel(),BorderLayout.CENTER);
+		editorView.setValuePanelChangeFcn(newPanel->{
+			if (valuePanel!=null) leftPanel.remove(valuePanel);
+			valuePanel = newPanel;
+			if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
+			leftPanel.revalidate();
+			leftPanel.repaint();
+		});
 		
 		JPanel contentPane = new JPanel(new BorderLayout(3,3));
 		contentPane.setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
 		contentPane.add(leftPanel,BorderLayout.WEST);
-		contentPane.add(editorView,BorderLayout.CENTER);
+		contentPane.add(editorViewPanel,BorderLayout.CENTER);
 		
 		JMenuBar menuBar = createMenuBar();
 		
@@ -71,10 +86,7 @@ class MainWindow extends StandardMainWindow {
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
 		fontMenu.add(createMenuItem("Load Font ...",e->{}));
-		fontMenu.add(createMenuItem("Load Default Font",e->{
-			alphaCharEditor.loadDefaultFont();
-			updateAfterFontLoad();
-		}));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.loadDefaultFont(editorView.getViewState()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font",e->{}));
 		fontMenu.add(createMenuItem("Save Font As ...",e->{}));
 		

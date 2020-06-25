@@ -30,15 +30,18 @@ public interface LineForm {
 	void drawLines (Graphics2D g2, ViewState viewState);
 	void drawPoints(Graphics2D g2, ViewState viewState);
 	public Double getDistance(float x, float y, float maxDist);
+	public Form setValues(ViewState viewState, double[] values);
 	
 	public static class Factory implements Form.Factory {
-		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(values); }
-		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(values); }
-		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(values); }
+		private final ViewState viewState;
+		Factory(ViewState viewState) { this.viewState = viewState; }
+		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(viewState,values); }
+		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(viewState,values); }
+		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(viewState,values); }
 	}
 	
 	public static class PolyLine extends Form.PolyLine implements LineForm {
-		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
+		@Override public LineForm.PolyLine setValues(ViewState viewState, double[] values) { setValues(values); return this; }
 		
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
@@ -60,7 +63,7 @@ public interface LineForm {
 			for (Point p1:points) {
 				int x = viewState.convertPos_AngleToScreen_LongX((float) p1.x);
 				int y = viewState.convertPos_AngleToScreen_LatY ((float) p1.y);
-				EditorView.drawPoint(g2,x,y);
+				EditorView.drawPoint(g2,x,y,false);
 			}
 		}
 
@@ -83,9 +86,13 @@ public interface LineForm {
 		
 		enum SelectedPoint { P1,P2 } 
 		
-		SelectedPoint selectedPoint = null; 
+		SelectedPoint selectedPoint    = null;
+		SelectedPoint highlightedPoint = null; 
 		
-		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
+		@Override public LineForm.Line setValues(ViewState viewState, double[] values) {
+			setValues(values);
+			return this;
+		}
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
@@ -101,8 +108,8 @@ public interface LineForm {
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
 			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
 			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
-			EditorView.drawPoint(g2,x1s,y1s);
-			EditorView.drawPoint(g2,x2s,y2s);
+			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==SelectedPoint.P1 || selectedPoint==SelectedPoint.P1);
+			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==SelectedPoint.P2 || selectedPoint==SelectedPoint.P2);
 		}
 
 		@Override
@@ -134,7 +141,7 @@ public interface LineForm {
 	
 	public static class Arc extends Form.Arc implements LineForm {
 
-		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
+		@Override public LineForm.Arc setValues(ViewState viewState, double[] values) { setValues(values); return this; }
 		
 		@Override
 		public void drawLines(Graphics2D g2, ViewState viewState) {
@@ -154,9 +161,9 @@ public interface LineForm {
 			int ySs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aStart)));
 			int xEs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aEnd  )));
 			int yEs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aEnd  )));
-			EditorView.drawPoint(g2,xSs,ySs);
-			EditorView.drawPoint(g2,xEs,yEs);
-			EditorView.drawPoint(g2,xCs,yCs);
+			EditorView.drawPoint(g2,xSs,ySs,false);
+			EditorView.drawPoint(g2,xEs,yEs,false);
+			EditorView.drawPoint(g2,xCs,yCs,false);
 		}
 
 		@Override

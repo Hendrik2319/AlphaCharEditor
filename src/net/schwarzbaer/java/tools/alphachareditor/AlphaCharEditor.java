@@ -8,6 +8,7 @@ import javax.swing.UnsupportedLookAndFeelException;
 
 import net.schwarzbaer.image.alphachar.AlphaCharIO;
 import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
 public class AlphaCharEditor {
 	
@@ -19,7 +20,6 @@ public class AlphaCharEditor {
 		try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
 		catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {}
 		
-		// TODO Auto-generated method stub
 		//testAlphaCharIO();
 		
 		new AlphaCharEditor().createGUI();
@@ -48,7 +48,7 @@ public class AlphaCharEditor {
 		mainwindow = new MainWindow(this,"AlphaChar Editor");
 	}
 
-	public void loadDefaultFont() {
-		font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory());
+	public void loadDefaultFont(ViewState viewState) {
+		font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory(viewState));
 	}
 }
