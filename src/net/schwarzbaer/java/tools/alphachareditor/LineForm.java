@@ -217,7 +217,7 @@ public interface LineForm {
 			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
 			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
 			int rs  = viewState.convertLength_LengthToScreen((float) r);
-			int startAngle = (int) Math.round( aStart      *180/Math.PI);
+			int startAngle = (int) Math.round( -aEnd       *180/Math.PI);
 			int arcAngle   = (int) Math.round((aEnd-aStart)*180/Math.PI);
 			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
 		}

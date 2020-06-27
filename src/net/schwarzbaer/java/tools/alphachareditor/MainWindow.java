@@ -49,15 +49,16 @@ class MainWindow extends StandardMainWindow {
 		if (!condition) throw new IllegalStateException();
 	}
 	
-	private AlphaCharEditor alphaCharEditor;
-	private CharRaster charRaster;
-	private EditorView editorView;
+	private LineForm[] lineforms = null;
 	private Character selectedChar;
 	private JComponent valuePanel;
-	private GeneralOptionPanel generalOptionPanel;
-	private FileChooser projectFileChooser;
-	private FileChooser fontFileChooser;
-	private LineForm[] lineforms = null;
+	
+	private final AlphaCharEditor alphaCharEditor;
+	private final CharRaster charRaster;
+	private final EditorView editorView;
+	private final GeneralOptionPanel generalOptionPanel;
+	private final FileChooser projectFileChooser;
+	private final FileChooser fontFileChooser;
 
 	MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
 		super(title);
@@ -131,7 +132,6 @@ class MainWindow extends StandardMainWindow {
 			@Override public void updateHighlightedForm(LineForm form) {
 				generalOptionPanel.setSelectedForm(form);
 			}
-			
 			@Override public void setValuePanel(JPanel panel) {
 				if (valuePanel!=null) leftPanel.remove(valuePanel);
 				if (panel!=null)

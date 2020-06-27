@@ -52,8 +52,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 	void setForms(LineForm[] forms) {
 		this.forms = forms;
-		formEditing = null;
 		highlightedForm = null;
+		deselect();
 		repaint();
 	}
 

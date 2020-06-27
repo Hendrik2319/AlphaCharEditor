@@ -47,6 +47,11 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		if (form instanceof Arc     ) return new      ArcEditing((Arc     ) form, viewState, editorView, e);
 		return null;
 	}
+
+	protected void setFixed(JTextField field, boolean isFixed) {
+		field.setEditable(!isFixed);
+		//field.setEnabled (!isFixed);
+	}
 	
 	protected JCheckBox createCheckBox(String title, boolean isSelected, Consumer<Boolean> setValue) {
 		JCheckBox comp = new JCheckBox(title,isSelected);
@@ -85,7 +90,7 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			this(value, toString, parse, isOK, setValue, null);
 		}
 		GenericTextField(V value, Function<V,String> toString, Function<String,V> parse, Predicate<V> isOK, Consumer<V> setValue, Consumer<V> setValueWhileAdjusting) {
-			super(toString.apply(value));
+			super(toString.apply(value),5);
 			this.toString = toString;
 			this.parse = parse;
 			this.isOK = isOK;
@@ -170,11 +175,6 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			return panel;
 		}
 
-		private void setFixed(GenericTextField<Double> field, boolean isFixed) {
-			field.setEditable(!isFixed);
-			//field.setEnabled (!isFixed);
-		}
-
 		private SelectedPoint getNext(int x, int y) {
 			x1s = viewState.convertPos_AngleToScreen_LongX((float) form.x1);
 			y1s = viewState.convertPos_AngleToScreen_LatY ((float) form.y1);
@@ -244,15 +244,49 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		@Override public void onExited  (MouseEvent e) { form.highlightedPoint = null; editorView.repaint(); }
 	}
 	
-	static class PolyLineEditing extends LineFormEditing<PolyLine> {
-		public PolyLineEditing(PolyLine form, ViewState viewState, EditorView editorView, MouseEvent e) {
+	static class ArcEditing extends LineFormEditing<Arc> {
+		private GenericTextField<Double>     cxField = null;
+		private GenericTextField<Double>     cyField = null;
+		private GenericTextField<Double>      rField = null;
+		private GenericTextField<Double> aStartField = null;
+		private GenericTextField<Double>   aEndField = null;
+		private boolean     isCxField = false;
+		private boolean     isCyField = false;
+		private boolean      isRField = false;
+		private boolean isAStartField = false;
+		private boolean   isAEndField = false;
+		public ArcEditing(Arc form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
 		}
 		
 		@Override public JPanel createValuePanel() {
 			JPanel panel = new JPanel(new GridBagLayout());
-			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
-			// TODO
+			panel.setBorder(BorderFactory.createTitledBorder("Arc Values"));
+			GridBagConstraints c = new GridBagConstraints();
+			int i=0;
+			c.fill = GridBagConstraints.BOTH;
+			c.weighty=0;
+			c.weightx=0; c.gridx=0; i=0;
+			c.gridy=i++; panel.add(new JLabel("Center X: "),c);
+			c.gridy=i++; panel.add(new JLabel("Center Y: "),c);
+			c.gridy=i++; panel.add(new JLabel("Radius: "),c);
+			c.gridy=i++; panel.add(new JLabel("Start Angle (deg): "),c);
+			c.gridy=i++; panel.add(new JLabel("End Angle (deg): "),c);
+			c.weightx=1; c.gridx=1; i=0;
+			c.gridy=i++; panel.add(    cxField=createDoubleInput(form.xC    , v->form.xC    =v),c);
+			c.gridy=i++; panel.add(    cyField=createDoubleInput(form.yC    , v->form.yC    =v),c);
+			c.gridy=i++; panel.add(     rField=createDoubleInput(form.r     , v->form.r     =v, v->v>0),c);
+			c.gridy=i++; panel.add(aStartField=createDoubleInput(form.aStart*180/Math.PI, v->form.aStart=v/180*Math.PI, v->v<=form.aEnd  *180/Math.PI),c);
+			c.gridy=i++; panel.add(  aEndField=createDoubleInput(form.aEnd  *180/Math.PI, v->form.aEnd  =v/180*Math.PI, v->v>=form.aStart*180/Math.PI),c);
+			c.weightx=0; c.gridx=2; i=0;
+			c.gridy=i++; panel.add(createCheckBox("fixed",     isCxField, b->setFixed(    cxField,    isCxField=b)),c);
+			c.gridy=i++; panel.add(createCheckBox("fixed",     isCyField, b->setFixed(    cyField,    isCyField=b)),c);
+			c.gridy=i++; panel.add(createCheckBox("fixed",      isRField, b->setFixed(     rField,     isRField=b)),c);
+			c.gridy=i++; panel.add(createCheckBox("fixed", isAStartField, b->setFixed(aStartField,isAStartField=b)),c);
+			c.gridy=i++; panel.add(createCheckBox("fixed",   isAEndField, b->setFixed(  aEndField,  isAEndField=b)),c);
+			c.weighty=1; c.weightx=1;
+			c.gridx=0; c.gridy=i; c.gridwidth=3;
+			panel.add(new JLabel(),c);
 			return panel;
 		}
 		
@@ -263,15 +297,15 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		@Override public boolean onReleased(MouseEvent e) { return false; }
 		@Override public boolean onDragged (MouseEvent e) { return false; }
 	}
-	
-	static class ArcEditing extends LineFormEditing<Arc> {
-		public ArcEditing(Arc form, ViewState viewState, EditorView editorView, MouseEvent e) {
+
+	static class PolyLineEditing extends LineFormEditing<PolyLine> {
+		public PolyLineEditing(PolyLine form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
 		}
 		
 		@Override public JPanel createValuePanel() {
 			JPanel panel = new JPanel(new GridBagLayout());
-			panel.setBorder(BorderFactory.createTitledBorder("Arc Values"));
+			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
 			// TODO
 			return panel;
 		}
