@@ -11,6 +11,11 @@ import net.schwarzbaer.image.bumpmapping.BumpMapping;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
 public interface LineForm {
+
+	static void Assert(boolean condition) {
+		if (!condition) throw new IllegalStateException();
+	}
+	
 	static final Stroke STROKE_HIGHLIGHTED = new BasicStroke(1.5f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND);
 	static final Stroke STROKE_STANDARD    = new BasicStroke(1f);
 	static final Color COLOR_HIGHLIGHTED = Color.BLUE;
@@ -205,6 +210,32 @@ public interface LineForm {
 			}
 			return null;
 		}
+	}
+
+	public static LineForm convert(Form form) {
+		Assert(form instanceof LineForm);
+		return (LineForm) form;
+	}
+
+	public static Form convert(LineForm form) {
+		if (form instanceof PolyLine) return (PolyLine) form;
+		if (form instanceof Line    ) return (Line    ) form;
+		if (form instanceof Arc     ) return (Arc     ) form;
+		Assert(false);
+		return null;
+	}
+	
+	public static Form[] convert(LineForm[] arr) {
+		if (arr == null) return null;
+		Form[] newArr = new Form[arr.length];
+		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
+		return newArr;
+	}
+	public static LineForm[] convert(Form[] arr) {
+		if (arr == null) return null;
+		LineForm[] newArr = new LineForm[arr.length];
+		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
+		return newArr;
 	}
 
 }

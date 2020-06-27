@@ -8,7 +8,6 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
 import java.util.Locale;
 import java.util.Vector;
-import java.util.function.Consumer;
 
 import javax.swing.JPanel;
 
@@ -35,11 +34,12 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private Vector<GuideLine> guideLines = null;
 	private LineForm highlightedForm = null;
 	private LineFormEditing<?> formEditing = null;
-	private Consumer<JPanel> setValuePanelFcn = null;
-	private Consumer<LineForm> updateHighlightedInFormListFcn = null;
 	private GuideLine highlightedGuideLine;
+	private final Context context;
 	
-	EditorView() {
+	EditorView(Context context) {
+		this.context = context;
+		Assert(this.context!=null);
 		activateMapScale(COLOR_AXIS, "px");
 		activateAxes(COLOR_AXIS, true,true,true,true);
 	}
@@ -57,12 +57,10 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 
 	ViewState getViewState() { return viewState; }
-
-	public void setValuePanelChangeFcn(Consumer<JPanel> setValuePanelFcn) {
-		this.setValuePanelFcn = setValuePanelFcn;
-	}
-	public void setUpdateSelectedInFormListFcn(Consumer<LineForm> updateHighlightedInFormListFcn) {
-		this.updateHighlightedInFormListFcn = updateHighlightedInFormListFcn;
+	
+	interface Context {
+		void setValuePanel(JPanel panel);
+		void updateHighlightedForm(LineForm form);
 	}
 
 	public double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
@@ -78,7 +76,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	private void deselect() {
 		formEditing=null;
-		setValuePanelFcn.accept(null);
+		context.setValuePanel(null);
 	}
 	
 	private void setSelectedForm(MouseEvent e) {
@@ -89,7 +87,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 	private void setSelectedForm(LineForm selectedForm, MouseEvent e) {
 		formEditing = LineFormEditing.create(selectedForm,viewState,this,e);
-		if (formEditing!=null) setValuePanelFcn.accept(formEditing.createValuePanel());
+		if (formEditing!=null) context.setValuePanel(formEditing.createValuePanel());
 		highlightedForm = null;
 		repaint();
 	}
@@ -110,8 +108,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			this.highlightedForm = highlightedForm;
 			repaint();
 		}
-		if (updateHighlightedInFormList && updateHighlightedInFormListFcn!=null)
-			updateHighlightedInFormListFcn.accept(this.highlightedForm);
+		if (updateHighlightedInFormList)
+			context.updateHighlightedForm(this.highlightedForm);
 	}
 
 	private LineForm getNext(Point p) {
