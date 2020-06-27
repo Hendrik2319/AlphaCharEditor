@@ -6,7 +6,6 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -29,6 +28,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JToggleButton;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
@@ -66,22 +66,7 @@ class MainWindow extends StandardMainWindow {
 		editorViewPanel.add(editorView,BorderLayout.CENTER);
 		
 		selectedChar = null;
-		charRaster = new CharRaster(ch->{
-			selectedChar=ch;
-			Form[] forms = this.alphaCharEditor.project.font==null ? null : this.alphaCharEditor.project.font.get(selectedChar);
-			System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
-			LineForm[] lineforms = null;
-			if (forms != null) {
-				lineforms = new LineForm[forms.length];
-				for (int i=0; i<forms.length; i++) {
-					Form form = forms[i];
-					Assert(form instanceof LineForm);
-					lineforms[i] = (LineForm) form;
-				}
-			}
-			editorView.setForms(lineforms);
-			generalOptionPanel.setForms(lineforms);
-		});
+		charRaster = new CharRaster(this::setSelectedChar);
 		JPanel charRasterPanel = new JPanel(new BorderLayout(3,3));
 		charRasterPanel.setBorder(BorderFactory.createTitledBorder("Characters"));
 		charRasterPanel.add(charRaster,BorderLayout.CENTER);
@@ -119,223 +104,24 @@ class MainWindow extends StandardMainWindow {
 		editorView.reset();
 	}
 	
-	private class GeneralOptionPanel extends JPanel {
-
-		private static final long serialVersionUID = -2024771038202756837L;
-		
-		private SubPanel subPanel;
-		private FormsPanel formsPanel;
-		private GuideLinesPanel guideLinesPanel;
-		
-		GeneralOptionPanel() {
-			super(new BorderLayout(3,3));
-			setBorder(BorderFactory.createTitledBorder("General"));
-			
-			formsPanel = new FormsPanel();
-			guideLinesPanel = new GuideLinesPanel();
-			
-			ButtonGroup bg = new ButtonGroup();
-			JPanel buttonPanel = new JPanel(new GridLayout(1,0,3,3));
-			buttonPanel.add(createToggleButton("Forms"      , bg, true , e->setSubPanel(     formsPanel)));
-			buttonPanel.add(createToggleButton("Guide Lines", bg, false, e->setSubPanel(guideLinesPanel)));
-			
-			add(buttonPanel,BorderLayout.NORTH);
-			add(subPanel = formsPanel,BorderLayout.CENTER);
-		}
-		
-		public void setGuideLines(Vector<GuideLine> guideLines) {
-			guideLinesPanel.setGuideLines(guideLines);
-		}
-
-		void setSelectedForm(LineForm form) {
-			formsPanel.setSelected(form);
-		}
-
-		void updateContent() {
-			formsPanel.updateContent();
-			guideLinesPanel.updateContent();
-		}
-
-		void setForms(LineForm[] forms) {
-			formsPanel.setForms(forms);
-		}
-
-		private void setSubPanel(SubPanel newSubPanel) {
-			if (subPanel!=null) remove(subPanel);
-			subPanel = newSubPanel;
-			if (subPanel!=null) {
-				subPanel.updateContent();
-				add(subPanel,BorderLayout.CENTER);
-			}
-			revalidate();
-			repaint();
-		}
-		
-		private abstract class SubPanel extends JPanel {
-			private static final long serialVersionUID = 644740467923572485L;
-			protected SubPanel(LayoutManager layout) { super(layout); }
-			abstract void updateContent();
-		}
-
-		private class FormsPanel extends SubPanel {
-			private static final long serialVersionUID = 5266768936706086790L;
-			private final JList<LineForm> formList;
-			@SuppressWarnings("unused")
-			private final JButton btnNew;
-			private final JButton btnEdit;
-			@SuppressWarnings("unused")
-			private final JButton btnRemove;
-
-			FormsPanel() {
-				super(new BorderLayout(3,3));
-				
-				formList = new JList<LineForm>();
-				formList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-				formList.addListSelectionListener(e->{
-					LineForm selectedValue = formList.getSelectedValue();
-					editorView.setHighlightedForm(selectedValue);
-					setButtonsEnabled(selectedValue!=null);
-				});
-				
-				JScrollPane formListScrollPane = new JScrollPane(formList);
-				
-				JPanel buttonPanel = new JPanel(new GridBagLayout());
-				//GridBagConstraints c = new GridBagConstraints();
-				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
-				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editorView.setSelectedForm(formList.getSelectedValue())));
-				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
-				
-				add(formListScrollPane,BorderLayout.CENTER);
-				add(buttonPanel,BorderLayout.SOUTH);
-			}
-
-			private void setButtonsEnabled(boolean enabled) {
-				//btnNew   .setEnabled(enabled);
-				btnEdit  .setEnabled(enabled);
-				//btnRemove.setEnabled(enabled);
-			}
-
-			void setSelected(LineForm form) {
-				if (form==null) formList.clearSelection();
-				else formList.setSelectedValue(form, true);
-				setButtonsEnabled(form!=null);
-			}
-
-			void setForms(LineForm[] forms) {
-				formList.setModel(new FormListModel(forms));
-			}
-
-			@Override
-			void updateContent() {
-				// TODO Auto-generated method stub
-			}
-
-			private final class FormListModel implements ListModel<LineForm> {
-				private LineForm[] forms;
-				private Vector<ListDataListener> listDataListeners;
-				
-				public FormListModel(LineForm[] forms) {
-					this.forms = forms;
-					listDataListeners = new Vector<>();
-				}
-
-				@Override public int getSize() { return forms==null ? 0 : forms.length; }
-				@Override public LineForm getElementAt(int index) {
-					if (forms==null || index<0 || index>=forms.length) return null;
-					return forms[index];
-				}
-			
-				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
-				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
-			}
-			
-		}
-		
-		private class GuideLinesPanel extends SubPanel {
-			private static final long serialVersionUID = -2804258616332267816L;
-			private final JList<GuideLine> guideLineList;
-			@SuppressWarnings("unused")
-			private final JButton btnNew;
-			private final JButton btnEdit;
-			@SuppressWarnings("unused")
-			private final JButton btnRemove;
-
-			GuideLinesPanel() {
-				super(new BorderLayout(3,3));
-				
-				guideLineList = new JList<GuideLine>();
-				guideLineList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-				guideLineList.addListSelectionListener(e->{
-					GuideLine selected = guideLineList.getSelectedValue();
-					setButtonsEnabled(selected!=null);
-					editorView.setHighlightedGuideLine(selected);
-				});
-				
-				JScrollPane guideLineListScrollPane = new JScrollPane(guideLineList);
-				
-				JPanel buttonPanel = new JPanel(new GridBagLayout());
-				//GridBagConstraints c = new GridBagConstraints();
-				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
-				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editGuideLine(guideLineList.getSelectedValue())));
-				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
-				
-				add(guideLineListScrollPane,BorderLayout.CENTER);
-				add(buttonPanel,BorderLayout.SOUTH);
-			}
-
-			private void editGuideLine(GuideLine selected) {
-				if (selected==null) return;
-				
-				String message = String.format("Set %s position of %s guideline:", selected.type.axis, selected.type.toString().toLowerCase());
-				String newStr = JOptionPane.showInputDialog(this, message, selected.pos);
-				if (newStr==null) return;
-				
-				try {
-					selected.pos = Float.parseFloat(newStr);
-					editorView.repaint();
-					guideLineList.repaint();
-				} catch (NumberFormatException e) {
-					message = String.format("Can't parse \"%s\" as numeric value.", newStr);
-					JOptionPane.showMessageDialog(this, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
-				}
-			}
-
-			private void setButtonsEnabled(boolean enabled) {
-				//btnNew   .setEnabled(enabled);
-				btnEdit  .setEnabled(enabled);
-				//btnRemove.setEnabled(enabled);
-			}
-
-			void setGuideLines(Vector<GuideLine> guideLines) {
-				guideLineList.setModel(new GuideLineListModel(guideLines));
-			}
-
-			@Override
-			void updateContent() {
-				// TODO Auto-generated method stub
-			}
-			
-			private final class GuideLineListModel implements ListModel<GuideLine> {
-				private Vector<ListDataListener> listDataListeners;
-				private Vector<GuideLine> guideLines;
-
-				public GuideLineListModel(Vector<GuideLine> guideLines) {
-					this.guideLines = guideLines;
-					listDataListeners = new Vector<>();
-				}
-
-				@Override public int getSize() { return guideLines==null ? 0 : guideLines.size(); }
-				@Override public GuideLine getElementAt(int index) {
-					if (guideLines==null || index<0 || index>=guideLines.size()) return null;
-					return guideLines.get(index);
-				}
-			
-				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
-				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
+	private void setSelectedChar(Character ch) {
+		selectedChar=ch;
+		Form[] forms = this.alphaCharEditor.project.font==null ? null : this.alphaCharEditor.project.font.get(selectedChar);
+		System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
+		LineForm[] lineforms = null;
+		if (forms != null) {
+			lineforms = new LineForm[forms.length];
+			for (int i=0; i<forms.length; i++) {
+				Form form = forms[i];
+				Assert(form instanceof LineForm);
+				lineforms[i] = (LineForm) form;
 			}
 		}
+		editorView.setForms(lineforms);
+		generalOptionPanel.setForms(lineforms);
 	}
-
+	
+	@SuppressWarnings("unused")
 	private JToggleButton createToggleButton(String title, ButtonGroup bg, boolean selected, ActionListener al) {
 		JToggleButton comp = new JToggleButton(title,selected);
 		if (bg!=null) bg.add(comp);
@@ -374,6 +160,7 @@ class MainWindow extends StandardMainWindow {
 
 	private void updateAfterFontLoad() {
 		charRaster.updateCharList(alphaCharEditor.project.font);
+		setSelectedChar(null);
 	}
 
 	private JMenuItem createMenuItem(String title, ActionListener al) {
@@ -382,6 +169,204 @@ class MainWindow extends StandardMainWindow {
 		return comp;
 	}
 	
+	private class GeneralOptionPanel extends JTabbedPane {
+	
+		private static final long serialVersionUID = -2024771038202756837L;
+		
+		private FormsPanel formsPanel;
+		private GuideLinesPanel guideLinesPanel;
+		
+		GeneralOptionPanel() {
+			super();
+			setBorder(BorderFactory.createTitledBorder("General"));
+			addTab("Forms"      ,      formsPanel = new      FormsPanel());
+			addTab("Guide Lines", guideLinesPanel = new GuideLinesPanel());
+		}
+		
+		void setGuideLines(Vector<GuideLine> guideLines) {
+			guideLinesPanel.setGuideLines(guideLines);
+		}
+	
+		void setSelectedForm(LineForm form) {
+			formsPanel.setSelected(form);
+		}
+	
+		void updateContent() {
+			formsPanel.updateContent();
+			guideLinesPanel.updateContent();
+		}
+	
+		void setForms(LineForm[] forms) {
+			formsPanel.setForms(forms);
+		}
+		
+		private abstract class SubPanel extends JPanel {
+			private static final long serialVersionUID = 644740467923572485L;
+			protected SubPanel(LayoutManager layout) { super(layout); }
+			abstract void updateContent();
+		}
+	
+		private class FormsPanel extends SubPanel {
+			private static final long serialVersionUID = 5266768936706086790L;
+			private final JList<LineForm> formList;
+			@SuppressWarnings("unused")
+			private final JButton btnNew;
+			private final JButton btnEdit;
+			@SuppressWarnings("unused")
+			private final JButton btnRemove;
+	
+			FormsPanel() {
+				super(new BorderLayout(3,3));
+				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
+				
+				formList = new JList<LineForm>();
+				formList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				formList.addListSelectionListener(e->{
+					LineForm selectedValue = formList.getSelectedValue();
+					editorView.setHighlightedForm(selectedValue);
+					setButtonsEnabled(selectedValue!=null);
+				});
+				
+				JScrollPane formListScrollPane = new JScrollPane(formList);
+				
+				JPanel buttonPanel = new JPanel(new GridBagLayout());
+				//GridBagConstraints c = new GridBagConstraints();
+				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
+				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editorView.setSelectedForm(formList.getSelectedValue())));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
+				
+				add(formListScrollPane,BorderLayout.CENTER);
+				add(buttonPanel,BorderLayout.SOUTH);
+			}
+	
+			private void setButtonsEnabled(boolean enabled) {
+				//btnNew   .setEnabled(enabled);
+				btnEdit  .setEnabled(enabled);
+				//btnRemove.setEnabled(enabled);
+			}
+	
+			void setSelected(LineForm form) {
+				if (form==null) formList.clearSelection();
+				else formList.setSelectedValue(form, true);
+				setButtonsEnabled(form!=null);
+			}
+	
+			void setForms(LineForm[] forms) {
+				formList.setModel(new FormListModel(forms));
+			}
+	
+			@Override
+			void updateContent() {
+				// TODO Auto-generated method stub
+			}
+	
+			private final class FormListModel implements ListModel<LineForm> {
+				private LineForm[] forms;
+				private Vector<ListDataListener> listDataListeners;
+				
+				public FormListModel(LineForm[] forms) {
+					this.forms = forms;
+					listDataListeners = new Vector<>();
+				}
+	
+				@Override public int getSize() { return forms==null ? 0 : forms.length; }
+				@Override public LineForm getElementAt(int index) {
+					if (forms==null || index<0 || index>=forms.length) return null;
+					return forms[index];
+				}
+			
+				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
+				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
+			}
+			
+		}
+		
+		private class GuideLinesPanel extends SubPanel {
+			private static final long serialVersionUID = -2804258616332267816L;
+			private final JList<GuideLine> guideLineList;
+			@SuppressWarnings("unused")
+			private final JButton btnNew;
+			private final JButton btnEdit;
+			@SuppressWarnings("unused")
+			private final JButton btnRemove;
+	
+			GuideLinesPanel() {
+				super(new BorderLayout(3,3));
+				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
+				
+				guideLineList = new JList<GuideLine>();
+				guideLineList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				guideLineList.addListSelectionListener(e->{
+					GuideLine selected = guideLineList.getSelectedValue();
+					setButtonsEnabled(selected!=null);
+					editorView.setHighlightedGuideLine(selected);
+				});
+				
+				JScrollPane guideLineListScrollPane = new JScrollPane(guideLineList);
+				
+				JPanel buttonPanel = new JPanel(new GridBagLayout());
+				//GridBagConstraints c = new GridBagConstraints();
+				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
+				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editGuideLine(guideLineList.getSelectedValue())));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
+				
+				add(guideLineListScrollPane,BorderLayout.CENTER);
+				add(buttonPanel,BorderLayout.SOUTH);
+			}
+	
+			private void editGuideLine(GuideLine selected) {
+				if (selected==null) return;
+				
+				String message = String.format("Set %s position of %s guideline:", selected.type.axis, selected.type.toString().toLowerCase());
+				String newStr = JOptionPane.showInputDialog(this, message, selected.pos);
+				if (newStr==null) return;
+				
+				try {
+					selected.pos = Float.parseFloat(newStr);
+					editorView.repaint();
+					guideLineList.repaint();
+				} catch (NumberFormatException e) {
+					message = String.format("Can't parse \"%s\" as numeric value.", newStr);
+					JOptionPane.showMessageDialog(this, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
+				}
+			}
+	
+			private void setButtonsEnabled(boolean enabled) {
+				//btnNew   .setEnabled(enabled);
+				btnEdit  .setEnabled(enabled);
+				//btnRemove.setEnabled(enabled);
+			}
+	
+			void setGuideLines(Vector<GuideLine> guideLines) {
+				guideLineList.setModel(new GuideLineListModel(guideLines));
+			}
+	
+			@Override
+			void updateContent() {
+				// TODO Auto-generated method stub
+			}
+			
+			private final class GuideLineListModel implements ListModel<GuideLine> {
+				private Vector<ListDataListener> listDataListeners;
+				private Vector<GuideLine> guideLines;
+	
+				public GuideLineListModel(Vector<GuideLine> guideLines) {
+					this.guideLines = guideLines;
+					listDataListeners = new Vector<>();
+				}
+	
+				@Override public int getSize() { return guideLines==null ? 0 : guideLines.size(); }
+				@Override public GuideLine getElementAt(int index) {
+					if (guideLines==null || index<0 || index>=guideLines.size()) return null;
+					return guideLines.get(index);
+				}
+			
+				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
+				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
+			}
+		}
+	}
+
 	private static class CharRaster extends Canvas {
 		private static final Color COLOR_TEXT           = Color.BLACK;
 		private static final Color COLOR_TEXT_NOTEXISTS = Color.LIGHT_GRAY;
@@ -450,6 +435,10 @@ class MainWindow extends StandardMainWindow {
 					charExist[b][ch] = forms!=null;
 				}
 			}
+			highlightedField = null;
+			selectedField = null;
+			selectedChar = null;
+			repaint();
 		}
 
 		interface SelectionListener {
