@@ -2,8 +2,12 @@ package net.schwarzbaer.java.tools.alphachareditor;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.LayoutManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -12,18 +16,28 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Vector;
 
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
+import javax.swing.ListModel;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.ListDataListener;
 
 import net.schwarzbaer.gui.Canvas;
 import net.schwarzbaer.gui.StandardMainWindow;
 import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
 
 class MainWindow extends StandardMainWindow {
 	private static final long serialVersionUID = 313126168052969131L;
@@ -36,7 +50,8 @@ class MainWindow extends StandardMainWindow {
 	private CharRaster charRaster;
 	private EditorView editorView;
 	private Character selectedChar;
-	private JComponent valuePanel = null;
+	private JComponent valuePanel;
+	private GeneralOptionPanel generalOptionPanel;
 
 	MainWindow(AlphaCharEditor alphaCharEditor, String title) {
 		super(title);
@@ -44,6 +59,8 @@ class MainWindow extends StandardMainWindow {
 		
 		editorView = new EditorView();
 		editorView.setPreferredSize(500, 300);
+		editorView.setGuideLines(this.alphaCharEditor.project.guideLines);
+		
 		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
 		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
 		editorViewPanel.add(editorView,BorderLayout.CENTER);
@@ -51,24 +68,45 @@ class MainWindow extends StandardMainWindow {
 		selectedChar = null;
 		charRaster = new CharRaster(ch->{
 			selectedChar=ch;
-			Form[] forms = this.alphaCharEditor.font==null ? null : this.alphaCharEditor.font.get(selectedChar);
+			Form[] forms = this.alphaCharEditor.project.font==null ? null : this.alphaCharEditor.project.font.get(selectedChar);
 			System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
-			editorView.setForms(forms);
+			LineForm[] lineforms = null;
+			if (forms != null) {
+				lineforms = new LineForm[forms.length];
+				for (int i=0; i<forms.length; i++) {
+					Form form = forms[i];
+					Assert(form instanceof LineForm);
+					lineforms[i] = (LineForm) form;
+				}
+			}
+			editorView.setForms(lineforms);
+			generalOptionPanel.setForms(lineforms);
 		});
 		JPanel charRasterPanel = new JPanel(new BorderLayout(3,3));
 		charRasterPanel.setBorder(BorderFactory.createTitledBorder("Characters"));
 		charRasterPanel.add(charRaster,BorderLayout.CENTER);
 		
+		generalOptionPanel = new GeneralOptionPanel();
+		generalOptionPanel.setPreferredSize(new Dimension(200, 200));
+		generalOptionPanel.setGuideLines(this.alphaCharEditor.project.guideLines);
+		
 		JPanel leftPanel = new JPanel(new BorderLayout(3,3));
 		leftPanel.add(charRasterPanel,BorderLayout.NORTH);
-		leftPanel.add(valuePanel = new JLabel(),BorderLayout.CENTER);
+		leftPanel.add(valuePanel = generalOptionPanel,BorderLayout.CENTER);
+		
 		editorView.setValuePanelChangeFcn(newPanel->{
 			if (valuePanel!=null) leftPanel.remove(valuePanel);
-			valuePanel = newPanel;
+			if (newPanel!=null)
+				valuePanel = newPanel;
+			else {
+				valuePanel = generalOptionPanel;
+				generalOptionPanel.updateContent();
+			}
 			if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
 			leftPanel.revalidate();
 			leftPanel.repaint();
 		});
+		editorView.setUpdateSelectedInFormListFcn(generalOptionPanel::setSelectedForm);
 		
 		JPanel contentPane = new JPanel(new BorderLayout(3,3));
 		contentPane.setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
@@ -80,13 +118,254 @@ class MainWindow extends StandardMainWindow {
 		startGUI(contentPane, menuBar);
 		editorView.reset();
 	}
+	
+	private class GeneralOptionPanel extends JPanel {
+
+		private static final long serialVersionUID = -2024771038202756837L;
+		
+		private SubPanel subPanel;
+		private FormsPanel formsPanel;
+		private GuideLinesPanel guideLinesPanel;
+		
+		GeneralOptionPanel() {
+			super(new BorderLayout(3,3));
+			setBorder(BorderFactory.createTitledBorder("General"));
+			
+			formsPanel = new FormsPanel();
+			guideLinesPanel = new GuideLinesPanel();
+			
+			ButtonGroup bg = new ButtonGroup();
+			JPanel buttonPanel = new JPanel(new GridLayout(1,0,3,3));
+			buttonPanel.add(createToggleButton("Forms"      , bg, true , e->setSubPanel(     formsPanel)));
+			buttonPanel.add(createToggleButton("Guide Lines", bg, false, e->setSubPanel(guideLinesPanel)));
+			
+			add(buttonPanel,BorderLayout.NORTH);
+			add(subPanel = formsPanel,BorderLayout.CENTER);
+		}
+		
+		public void setGuideLines(Vector<GuideLine> guideLines) {
+			guideLinesPanel.setGuideLines(guideLines);
+		}
+
+		void setSelectedForm(LineForm form) {
+			formsPanel.setSelected(form);
+		}
+
+		void updateContent() {
+			formsPanel.updateContent();
+			guideLinesPanel.updateContent();
+		}
+
+		void setForms(LineForm[] forms) {
+			formsPanel.setForms(forms);
+		}
+
+		private void setSubPanel(SubPanel newSubPanel) {
+			if (subPanel!=null) remove(subPanel);
+			subPanel = newSubPanel;
+			if (subPanel!=null) {
+				subPanel.updateContent();
+				add(subPanel,BorderLayout.CENTER);
+			}
+			revalidate();
+			repaint();
+		}
+		
+		private abstract class SubPanel extends JPanel {
+			private static final long serialVersionUID = 644740467923572485L;
+			protected SubPanel(LayoutManager layout) { super(layout); }
+			abstract void updateContent();
+		}
+
+		private class FormsPanel extends SubPanel {
+			private static final long serialVersionUID = 5266768936706086790L;
+			private final JList<LineForm> formList;
+			@SuppressWarnings("unused")
+			private final JButton btnNew;
+			private final JButton btnEdit;
+			@SuppressWarnings("unused")
+			private final JButton btnRemove;
+
+			FormsPanel() {
+				super(new BorderLayout(3,3));
+				
+				formList = new JList<LineForm>();
+				formList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				formList.addListSelectionListener(e->{
+					LineForm selectedValue = formList.getSelectedValue();
+					editorView.setHighlightedForm(selectedValue);
+					setButtonsEnabled(selectedValue!=null);
+				});
+				
+				JScrollPane formListScrollPane = new JScrollPane(formList);
+				
+				JPanel buttonPanel = new JPanel(new GridBagLayout());
+				//GridBagConstraints c = new GridBagConstraints();
+				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
+				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editorView.setSelectedForm(formList.getSelectedValue())));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
+				
+				add(formListScrollPane,BorderLayout.CENTER);
+				add(buttonPanel,BorderLayout.SOUTH);
+			}
+
+			private void setButtonsEnabled(boolean enabled) {
+				//btnNew   .setEnabled(enabled);
+				btnEdit  .setEnabled(enabled);
+				//btnRemove.setEnabled(enabled);
+			}
+
+			void setSelected(LineForm form) {
+				if (form==null) formList.clearSelection();
+				else formList.setSelectedValue(form, true);
+				setButtonsEnabled(form!=null);
+			}
+
+			void setForms(LineForm[] forms) {
+				formList.setModel(new FormListModel(forms));
+			}
+
+			@Override
+			void updateContent() {
+				// TODO Auto-generated method stub
+			}
+
+			private final class FormListModel implements ListModel<LineForm> {
+				private LineForm[] forms;
+				private Vector<ListDataListener> listDataListeners;
+				
+				public FormListModel(LineForm[] forms) {
+					this.forms = forms;
+					listDataListeners = new Vector<>();
+				}
+
+				@Override public int getSize() { return forms==null ? 0 : forms.length; }
+				@Override public LineForm getElementAt(int index) {
+					if (forms==null || index<0 || index>=forms.length) return null;
+					return forms[index];
+				}
+			
+				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
+				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
+			}
+			
+		}
+		
+		private class GuideLinesPanel extends SubPanel {
+			private static final long serialVersionUID = -2804258616332267816L;
+			private final JList<GuideLine> guideLineList;
+			@SuppressWarnings("unused")
+			private final JButton btnNew;
+			private final JButton btnEdit;
+			@SuppressWarnings("unused")
+			private final JButton btnRemove;
+
+			GuideLinesPanel() {
+				super(new BorderLayout(3,3));
+				
+				guideLineList = new JList<GuideLine>();
+				guideLineList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				guideLineList.addListSelectionListener(e->{
+					GuideLine selected = guideLineList.getSelectedValue();
+					setButtonsEnabled(selected!=null);
+					editorView.setHighlightedGuideLine(selected);
+				});
+				
+				JScrollPane guideLineListScrollPane = new JScrollPane(guideLineList);
+				
+				JPanel buttonPanel = new JPanel(new GridBagLayout());
+				//GridBagConstraints c = new GridBagConstraints();
+				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
+				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editGuideLine(guideLineList.getSelectedValue())));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
+				
+				add(guideLineListScrollPane,BorderLayout.CENTER);
+				add(buttonPanel,BorderLayout.SOUTH);
+			}
+
+			private void editGuideLine(GuideLine selected) {
+				if (selected==null) return;
+				
+				String message = String.format("Set %s position of %s guideline:", selected.type.axis, selected.type.toString().toLowerCase());
+				String newStr = JOptionPane.showInputDialog(this, message, selected.pos);
+				if (newStr==null) return;
+				
+				try {
+					selected.pos = Float.parseFloat(newStr);
+					editorView.repaint();
+					guideLineList.repaint();
+				} catch (NumberFormatException e) {
+					message = String.format("Can't parse \"%s\" as numeric value.", newStr);
+					JOptionPane.showMessageDialog(this, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
+				}
+			}
+
+			private void setButtonsEnabled(boolean enabled) {
+				//btnNew   .setEnabled(enabled);
+				btnEdit  .setEnabled(enabled);
+				//btnRemove.setEnabled(enabled);
+			}
+
+			void setGuideLines(Vector<GuideLine> guideLines) {
+				guideLineList.setModel(new GuideLineListModel(guideLines));
+			}
+
+			@Override
+			void updateContent() {
+				// TODO Auto-generated method stub
+			}
+			
+			private final class GuideLineListModel implements ListModel<GuideLine> {
+				private Vector<ListDataListener> listDataListeners;
+				private Vector<GuideLine> guideLines;
+
+				public GuideLineListModel(Vector<GuideLine> guideLines) {
+					this.guideLines = guideLines;
+					listDataListeners = new Vector<>();
+				}
+
+				@Override public int getSize() { return guideLines==null ? 0 : guideLines.size(); }
+				@Override public GuideLine getElementAt(int index) {
+					if (guideLines==null || index<0 || index>=guideLines.size()) return null;
+					return guideLines.get(index);
+				}
+			
+				@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
+				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
+			}
+		}
+	}
+
+	private JToggleButton createToggleButton(String title, ButtonGroup bg, boolean selected, ActionListener al) {
+		JToggleButton comp = new JToggleButton(title,selected);
+		if (bg!=null) bg.add(comp);
+		if (al!=null) comp.addActionListener(al);
+		return comp;
+	}
+
+	@SuppressWarnings("unused")
+	private JButton createButton(String title, ActionListener al) {
+		return createButton(title, true, al);
+	}
+	private JButton createButton(String title, boolean enabled, ActionListener al) {
+		JButton comp = new JButton(title);
+		comp.setEnabled(enabled);
+		if (al!=null) comp.addActionListener(al);
+		return comp;
+	}
 
 	private JMenuBar createMenuBar() {
 		JMenuBar menuBar = new JMenuBar();
 		
+		JMenu projectMenu = menuBar.add(new JMenu("Project"));
+		projectMenu.add(createMenuItem("New Project",e->{}));
+		projectMenu.add(createMenuItem("Load Project ...",e->{}));
+		projectMenu.add(createMenuItem("Save Project",e->{}));
+		projectMenu.add(createMenuItem("Save Project As ...",e->{}));
+		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.project.loadDefaultFont(editorView.getViewState()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Load Font ...",e->{}));
-		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.loadDefaultFont(editorView.getViewState()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font",e->{}));
 		fontMenu.add(createMenuItem("Save Font As ...",e->{}));
 		
@@ -94,7 +373,7 @@ class MainWindow extends StandardMainWindow {
 	}
 
 	private void updateAfterFontLoad() {
-		charRaster.updateCharList(alphaCharEditor.font);
+		charRaster.updateCharList(alphaCharEditor.project.font);
 	}
 
 	private JMenuItem createMenuItem(String title, ActionListener al) {

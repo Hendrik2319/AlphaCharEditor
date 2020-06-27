@@ -138,7 +138,7 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		
 		public LineEditing(Line form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
-			this.form.highlightedPoint = getNext(e.getX(),e.getY());
+			this.form.highlightedPoint = e==null ? null : getNext(e.getX(),e.getY());
 		}
 				
 		@Override
@@ -224,12 +224,12 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			if (form.selectedPoint!=null) {
 				switch (form.selectedPoint) {
 				case P1:
-					if (!isX1Fixed) x1Field.setValue(form.x1 = viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX));
-					if (!isY1Fixed) y1Field.setValue(form.y1 = viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY));
+					if (!isX1Fixed) x1Field.setValue(form.x1 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
+					if (!isY1Fixed) y1Field.setValue(form.y1 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
 					break;
 				case P2:
-					if (!isX2Fixed) x2Field.setValue(form.x2 = viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX));
-					if (!isY2Fixed) y2Field.setValue(form.y2 = viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY));
+					if (!isX2Fixed) x2Field.setValue(form.x2 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
+					if (!isY2Fixed) y2Field.setValue(form.y2 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
 					break;
 				}
 				editorView.repaint();
@@ -248,7 +248,14 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		public PolyLineEditing(PolyLine form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
 		}
-		@Override public JPanel createValuePanel() { return null; }
+		
+		@Override public JPanel createValuePanel() {
+			JPanel panel = new JPanel(new GridBagLayout());
+			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
+			// TODO
+			return panel;
+		}
+		
 		@Override public void onExited  (MouseEvent e) {}
 		@Override public void onMoved   (MouseEvent e) {}
 		@Override public void onEntered (MouseEvent e) {}
@@ -261,7 +268,14 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		public ArcEditing(Arc form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
 		}
-		@Override public JPanel createValuePanel() { return null; }
+		
+		@Override public JPanel createValuePanel() {
+			JPanel panel = new JPanel(new GridBagLayout());
+			panel.setBorder(BorderFactory.createTitledBorder("Arc Values"));
+			// TODO
+			return panel;
+		}
+		
 		@Override public void onExited  (MouseEvent e) {}
 		@Override public void onMoved   (MouseEvent e) {}
 		@Override public void onEntered (MouseEvent e) {}

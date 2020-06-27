@@ -6,16 +6,19 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
+import java.util.Locale;
+import java.util.Vector;
 import java.util.function.Consumer;
 
 import javax.swing.JPanel;
 
 import net.schwarzbaer.gui.ZoomableCanvas;
-import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine.Type;
 
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	static final int MAX_NEAR_DISTANCE = 20;
+	static final int MAX_GUIDELINE_DISTANCE = 2;
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
@@ -25,49 +28,90 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	private static final Color COLOR_AXIS       = new Color(0x70000000,true);
 	private static final Color COLOR_BACKGROUND = Color.WHITE;
-	private static final Color COLOR_GUIDELINES      = new Color(0xf0f0f0);
+	private static final Color COLOR_GUIDELINES            = new Color(0xf0f0f0);
+	private static final Color COLOR_GUIDELINES_HIGLIGHTED = new Color(0xb5f0b5);
 
 	private LineForm[] forms = null;
-	private LineForm highlighted = null;
-	private LineFormEditing<?> editing = null;
-	private Consumer<JPanel> setValuePanel = null;
+	private Vector<GuideLine> guideLines = null;
+	private LineForm highlightedForm = null;
+	private LineFormEditing<?> formEditing = null;
+	private Consumer<JPanel> setValuePanelFcn = null;
+	private Consumer<LineForm> updateHighlightedInFormListFcn = null;
+	private GuideLine highlightedGuideLine;
 	
 	EditorView() {
 		activateMapScale(COLOR_AXIS, "px");
 		activateAxes(COLOR_AXIS, true,true,true,true);
 	}
-	
-	ViewState getViewState() { return viewState; }
 
-	public void setValuePanelChangeFcn(Consumer<JPanel> setValuePanel) {
-		this.setValuePanel = setValuePanel;
-	}
-
-	@Override public void mouseClicked (MouseEvent e) { if (editing!=null) deselect();            else setSelected(e); }
-	@Override public void mouseEntered (MouseEvent e) { if (editing!=null) editing.onEntered (e); else setHighlighted(e.getPoint()); }
-	@Override public void mouseMoved   (MouseEvent e) { if (editing!=null) editing.onMoved   (e); else setHighlighted(e.getPoint()); }
-	@Override public void mouseExited  (MouseEvent e) { if (editing!=null) editing.onExited  (e); else setHighlighted(null        ); }
-	@Override public void mousePressed (MouseEvent e) { if (editing==null || !editing.onPressed (e)) super.mousePressed (e); }
-	@Override public void mouseReleased(MouseEvent e) { if (editing==null || !editing.onReleased(e)) super.mouseReleased(e); }
-	@Override public void mouseDragged (MouseEvent e) { if (editing==null || !editing.onDragged (e)) super.mouseDragged (e); }
-	
-	private void deselect() {
-		editing=null;
-		setValuePanel.accept(null);
-	}
-	protected void setSelected(MouseEvent e) {
-		editing = LineFormEditing.create(getNext(e.getPoint()),viewState,this,e);
-		if (editing!=null) setValuePanel.accept(editing.createValuePanel());
-		highlighted = null;
+	void setGuideLines(Vector<GuideLine> guideLines) {
+		this.guideLines = guideLines;
 		repaint();
 	}
 
-	protected void setHighlighted(Point p) {
-		LineForm form = getNext(p);
-		if (form!=highlighted) {
-			highlighted = form;
+	void setForms(LineForm[] forms) {
+		this.forms = forms;
+		formEditing = null;
+		highlightedForm = null;
+		repaint();
+	}
+
+	ViewState getViewState() { return viewState; }
+
+	public void setValuePanelChangeFcn(Consumer<JPanel> setValuePanelFcn) {
+		this.setValuePanelFcn = setValuePanelFcn;
+	}
+	public void setUpdateSelectedInFormListFcn(Consumer<LineForm> updateHighlightedInFormListFcn) {
+		this.updateHighlightedInFormListFcn = updateHighlightedInFormListFcn;
+	}
+
+	public double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+	public double stickToGuideLineY(float y) { return GuideLine.stickToGuideLines(y, Type.Horizontal, viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+
+	@Override public void mouseClicked (MouseEvent e) { if (formEditing!=null) deselect();            else setSelectedForm(e); }
+	@Override public void mouseEntered (MouseEvent e) { if (formEditing!=null) formEditing.onEntered (e); else setHighlightedForm(e.getPoint()); setHighlightedGuideLine(null); }
+	@Override public void mouseMoved   (MouseEvent e) { if (formEditing!=null) formEditing.onMoved   (e); else setHighlightedForm(e.getPoint()); }
+	@Override public void mouseExited  (MouseEvent e) { if (formEditing!=null) formEditing.onExited  (e); else setHighlightedForm((Point)null ); }
+	@Override public void mousePressed (MouseEvent e) { if (formEditing==null || !formEditing.onPressed (e)) super.mousePressed (e); }
+	@Override public void mouseReleased(MouseEvent e) { if (formEditing==null || !formEditing.onReleased(e)) super.mouseReleased(e); }
+	@Override public void mouseDragged (MouseEvent e) { if (formEditing==null || !formEditing.onDragged (e)) super.mouseDragged (e); }
+	
+	private void deselect() {
+		formEditing=null;
+		setValuePanelFcn.accept(null);
+	}
+	
+	private void setSelectedForm(MouseEvent e) {
+		setSelectedForm(getNext(e.getPoint()), e);
+	}
+	void setSelectedForm(LineForm selectedForm) {
+		setSelectedForm(selectedForm, null);
+	}
+	private void setSelectedForm(LineForm selectedForm, MouseEvent e) {
+		formEditing = LineFormEditing.create(selectedForm,viewState,this,e);
+		if (formEditing!=null) setValuePanelFcn.accept(formEditing.createValuePanel());
+		highlightedForm = null;
+		repaint();
+	}
+
+	void setHighlightedGuideLine(GuideLine highlightedGuideLine) {
+		this.highlightedGuideLine = highlightedGuideLine;
+		repaint();
+	}
+
+	private void setHighlightedForm(Point p) {
+		setHighlightedForm(getNext(p),true);
+	}
+	void setHighlightedForm(LineForm highlightedForm) {
+		setHighlightedForm(highlightedForm,false);
+	}
+	private void setHighlightedForm(LineForm highlightedForm, boolean updateHighlightedInFormList) {
+		if (highlightedForm!=this.highlightedForm) {
+			this.highlightedForm = highlightedForm;
 			repaint();
 		}
+		if (updateHighlightedInFormList && updateHighlightedInFormListFcn!=null)
+			updateHighlightedInFormListFcn.accept(this.highlightedForm);
 	}
 
 	private LineForm getNext(Point p) {
@@ -91,22 +135,6 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		return nearest;
 	}
 
-	public void setForms(Form[] forms) {
-		if (forms==null)
-			this.forms=null;
-		else {
-			this.forms = new LineForm[forms.length];
-			for (int i=0; i<forms.length; i++) {
-				Form form = forms[i];
-				Assert(form instanceof LineForm);
-				this.forms[i] = (LineForm) form;
-			}
-		}
-		editing = null;
-		highlighted = null;
-		repaint();
-	}
-
 	@Override
 	protected void paintCanvas(Graphics g, int x, int y, int width, int height) {
 		g.setColor(COLOR_BACKGROUND);
@@ -118,25 +146,20 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			//g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
 			
-			int X0   = viewState.convertPos_AngleToScreen_LongX(  0);
-			int Y0   = viewState.convertPos_AngleToScreen_LatY (  0);
-			int Y40  = viewState.convertPos_AngleToScreen_LatY ( 40);
-			int Y100 = viewState.convertPos_AngleToScreen_LatY (100);
-			
-			g2.setColor(COLOR_GUIDELINES);
-			g2.drawLine(X0, y, X0, y+height);
-			g2.drawLine(x, Y0  , x+width, Y0  );
-			g2.drawLine(x, Y40 , x+width, Y40 );
-			g2.drawLine(x, Y100, x+width, Y100);
+			if (guideLines!=null)
+				for (GuideLine gl:guideLines) {
+					g2.setColor(gl==highlightedGuideLine ? COLOR_GUIDELINES_HIGLIGHTED : COLOR_GUIDELINES);
+					gl.draw(viewState,g2,x,y,width,height);
+				}
 			
 			drawMapDecoration(g2, x, y, width, height);
 			
-			LineForm selectedForm = editing==null ? null : editing.form;
+			LineForm selectedForm = formEditing==null ? null : formEditing.form;
 			if (forms!=null)
 				for (LineForm form:forms)
-					if (form!=selectedForm && form!=highlighted) form.drawLines(g2,viewState,false,false);
+					if (form!=selectedForm && form!=highlightedForm) form.drawLines(g2,viewState,false,false);
 			if (selectedForm!=null) { selectedForm.drawLines(g2,viewState,true ,false); selectedForm.drawPoints(g2, viewState); }
-			if (highlighted !=null) { highlighted .drawLines(g2,viewState,false,true ); highlighted .drawPoints(g2, viewState); }
+			if (highlightedForm !=null) { highlightedForm .drawLines(g2,viewState,false,true ); highlightedForm .drawPoints(g2, viewState); }
 		}
 		
 	}
@@ -173,5 +196,58 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			max.latitude_y  = (float) 200;
 			max.longitude_x = (float) 400;
 		}
+	}
+	
+	static class GuideLine {
+		
+		enum Type {
+			Horizontal("Y"), Vertical("X");
+			final String axis;
+			Type(String axis) { this.axis = axis; }
+		}
+
+		final Type type;
+		float pos;
+		
+		public GuideLine(Type type, float pos) {
+			this.type = type;
+			this.pos = pos;
+			Assert(this.type!=null);
+		}
+
+		@Override
+		public String toString() {
+			return String.format(Locale.ENGLISH, "%s GuideLine @ %s:%1.2f", type, type.axis, pos);
+		}
+
+		static double stickToGuideLines(float val, Type type, float maxDist, Vector<GuideLine> lines) {
+			Float dist = null;
+			Float pos = null;
+			if (lines!=null)
+				for (GuideLine gl:lines)
+					if (gl.type==type) {
+						float d = Math.abs(gl.pos-val);
+						if (d<=maxDist && (dist==null || dist.floatValue()>d)) {
+							dist = d;
+							pos = gl.pos;
+						}
+					}
+			if (pos!=null) return pos;
+			return val;
+		}
+
+		public void draw(ViewState viewState, Graphics2D g2, int x, int y, int width, int height) {
+			switch (type) {
+			case Horizontal:
+				int yl = viewState.convertPos_AngleToScreen_LatY(pos);
+				g2.drawLine(x, yl, x+width, yl);
+				break;
+			case Vertical:
+				int xl = viewState.convertPos_AngleToScreen_LongX(pos);
+				g2.drawLine(xl, y, xl, y+height);
+				break;
+			}
+		}
+		
 	}
 }

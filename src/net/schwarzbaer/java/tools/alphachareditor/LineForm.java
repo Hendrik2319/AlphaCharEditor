@@ -4,6 +4,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.util.Locale;
 
 import net.schwarzbaer.image.alphachar.Form;
 import net.schwarzbaer.image.bumpmapping.BumpMapping;
@@ -41,6 +42,12 @@ public interface LineForm {
 	}
 	
 	public static class PolyLine extends Form.PolyLine implements LineForm {
+
+		@Override
+		public String toString() {
+			return String.format(Locale.ENGLISH, "PolyLine [ %d points ]", points.size());
+		}
+
 		@Override public LineForm.PolyLine setValues(ViewState viewState, double[] values) { setValues(values); return this; }
 		
 		@Override
@@ -89,6 +96,11 @@ public interface LineForm {
 		SelectedPoint selectedPoint    = null;
 		SelectedPoint highlightedPoint = null; 
 		
+		@Override
+		public String toString() {
+			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
+		}
+
 		@Override public LineForm.Line setValues(ViewState viewState, double[] values) {
 			setValues(values);
 			return this;
@@ -140,6 +152,11 @@ public interface LineForm {
 	}
 	
 	public static class Arc extends Form.Arc implements LineForm {
+
+		@Override
+		public String toString() {
+			return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI);
+		}
 
 		@Override public LineForm.Arc setValues(ViewState viewState, double[] values) { setValues(values); return this; }
 		

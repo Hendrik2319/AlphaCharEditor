@@ -2,12 +2,14 @@ package net.schwarzbaer.java.tools.alphachareditor;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.Vector;
 
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
 import net.schwarzbaer.image.alphachar.AlphaCharIO;
 import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
 public class AlphaCharEditor {
@@ -42,13 +44,32 @@ public class AlphaCharEditor {
 	}
 
 	MainWindow mainwindow = null;
-	HashMap<Character, Form[]> font = null;
+	Project project;
 
+	private AlphaCharEditor() {
+		project = new Project();
+	}
+	
 	private void createGUI() {
 		mainwindow = new MainWindow(this,"AlphaChar Editor");
 	}
+	
+	static class Project {
+        Vector<GuideLine> guideLines;
+    	HashMap<Character, Form[]> font = null;
+    	File fontFile = null;
+		
+    	Project() {
+    		guideLines = new Vector<>();
+    		guideLines.add(new GuideLine(GuideLine.Type.Vertical,0));
+    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,0));
+    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,40));
+    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,100));
+    	}
 
-	public void loadDefaultFont(ViewState viewState) {
-		font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory(viewState));
+    	public void loadDefaultFont(ViewState viewState) {
+    		font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory(viewState));
+    		fontFile = null;
+    	}
 	}
 }
