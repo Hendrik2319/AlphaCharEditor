@@ -72,7 +72,7 @@ public class AlphaCharEditor {
 	private AlphaCharEditor readLastProject() {
 		Assert(mainwindow!=null);
 		String lastProjectPath = settings.getString(AppSettings.ValueKey.Project, null);
-		if (lastProjectPath!=null) project = Project.readFromFile(new File(lastProjectPath), mainwindow.createDefaultFormFactory());
+		if (lastProjectPath!=null) project = Project.readFromFile(new File(lastProjectPath));
 		mainwindow.updateAfterProjectLoad();
 		return this;
 	}
@@ -86,7 +86,7 @@ public class AlphaCharEditor {
 	
 	void loadProject(File file) {
 		Assert(mainwindow!=null);
-		project = Project.readFromFile(file, mainwindow.createDefaultFormFactory());
+		project = Project.readFromFile(file);
 		settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
 		mainwindow.updateAfterProjectLoad();
 	}
@@ -173,10 +173,6 @@ public class AlphaCharEditor {
     		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,100));
 		}
 
-		static LineForm.Factory createDefaultFactory(EditorView.ViewState viewState) {
-			return new LineForm.Factory(viewState);
-		}
-
 		void writeToFile(File file) {
 			if (file==null) return;
 			projectFile = file;
@@ -199,7 +195,7 @@ public class AlphaCharEditor {
 			System.out.printf("... done%n");
 		}
     	
-    	static Project readFromFile(File file, Form.Factory factory) {
+    	static Project readFromFile(File file) {
 			Project project = new Project(file);
 			
 			System.out.printf("Read project from file \"%s\" ...%n", file);
@@ -241,21 +237,21 @@ public class AlphaCharEditor {
 			System.out.printf("... done%n");
 			
 			if (project.fontIsDefault)
-				project.loadDefaultFont(factory);
+				project.loadDefaultFont();
 			else if (project.fontFile!=null)
-				project.loadFont(project.fontFile,factory);
+				project.loadFont(project.fontFile);
 			
 			return project;
     	}
 
-    	void loadDefaultFont(Form.Factory factory) {
-    		this.font = AlphaCharIO.readDefaultAlphaCharFont(factory, true);
+    	void loadDefaultFont() {
+    		this.font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory(), true);
     		this.fontFile = null;
     		this.fontIsDefault = true;
     	}
 
-		void loadFont(File fontFile, Form.Factory factory) {
-			this.font = AlphaCharIO.readAlphaCharFontFromFile(fontFile, factory, true);
+		void loadFont(File fontFile) {
+			this.font = AlphaCharIO.readAlphaCharFontFromFile(fontFile, new LineForm.Factory(), true);
     		this.fontFile = fontFile;
     		this.fontIsDefault = false;
     	}

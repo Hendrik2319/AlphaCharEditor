@@ -4,6 +4,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 
 import net.schwarzbaer.image.alphachar.Form;
@@ -33,18 +34,67 @@ public interface LineForm {
 		drawLines(g2, viewState);
 		g2.setStroke(prevStroke);
 	}
+	
 	void drawLines (Graphics2D g2, ViewState viewState);
 	void drawPoints(Graphics2D g2, ViewState viewState);
-	public Double getDistance(float x, float y, float maxDist);
-	public Form setValues(ViewState viewState, double[] values);
+	Double getDistance(float x, float y, float maxDist);
+	LineForm setValues(double[] values);
 	
-	public static class Factory implements Form.Factory {
-		private final ViewState viewState;
-		Factory(ViewState viewState) { this.viewState = viewState; }
-		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(viewState,values); }
-		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(viewState,values); }
-		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(viewState,values); }
+	static LineForm convert(Form form) {
+		Assert(form instanceof LineForm);
+		return (LineForm) form;
 	}
+
+	static Form convert(LineForm form) {
+		if (form instanceof PolyLine) return (PolyLine) form;
+		if (form instanceof Line    ) return (Line    ) form;
+		if (form instanceof Arc     ) return (Arc     ) form;
+		Assert(false);
+		return null;
+	}
+
+	static LineForm[] convert(Form[] arr) {
+		if (arr == null) return null;
+		LineForm[] newArr = new LineForm[arr.length];
+		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
+		return newArr;
+	}
+	static Form[] convert(LineForm[] arr) {
+		if (arr == null) return null;
+		Form[] newArr = new Form[arr.length];
+		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
+		return newArr;
+	}
+
+	static LineForm createNew(FormType formType, Rectangle2D.Float viewRect) {
+		switch (formType) {
+		case PolyLine: return new PolyLine().setValues(createNewValues(formType,viewRect));
+		case Line    : return new Line    ().setValues(createNewValues(formType,viewRect));
+		case Arc     : return new Arc     ().setValues(createNewValues(formType,viewRect));
+		}
+		return null;
+	}
+
+	static double[] createNewValues(FormType formType, Rectangle2D.Float viewRect) {
+		float x = viewRect.x;
+		float y = viewRect.y;
+		float w = viewRect.width;
+		float h = viewRect.height;
+		switch (formType) {
+		case PolyLine: return new double[] { x+2*w/5,y+2*h/5, x+2.5*w/5,y+3*h/5, x+3*w/5,y+2*h/5 };
+		case Line    : return new double[] { x+2*w/5,y+2*h/5, x+3*w/5,y+3*h/5 };
+		case Arc     : return new double[] { x+w/2,y+h/2, Math.min(w,h)/6, 0,Math.PI };
+		}
+		return null;
+	}
+
+	public static class Factory implements Form.Factory {
+		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(values); }
+		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(values); }
+		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(values); }
+	}
+	
+	public enum FormType { PolyLine, Line, Arc }
 	
 	public static class PolyLine extends Form.PolyLine implements LineForm {
 
@@ -53,7 +103,7 @@ public interface LineForm {
 			return String.format(Locale.ENGLISH, "PolyLine [ %d points ]", points.size());
 		}
 
-		@Override public LineForm.PolyLine setValues(ViewState viewState, double[] values) { setValues(values); return this; }
+		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
 		
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
@@ -106,10 +156,7 @@ public interface LineForm {
 			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
 		}
 
-		@Override public LineForm.Line setValues(ViewState viewState, double[] values) {
-			setValues(values);
-			return this;
-		}
+		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
@@ -163,7 +210,7 @@ public interface LineForm {
 			return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI);
 		}
 
-		@Override public LineForm.Arc setValues(ViewState viewState, double[] values) { setValues(values); return this; }
+		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
 		
 		@Override
 		public void drawLines(Graphics2D g2, ViewState viewState) {
@@ -210,32 +257,6 @@ public interface LineForm {
 			}
 			return null;
 		}
-	}
-
-	public static LineForm convert(Form form) {
-		Assert(form instanceof LineForm);
-		return (LineForm) form;
-	}
-
-	public static Form convert(LineForm form) {
-		if (form instanceof PolyLine) return (PolyLine) form;
-		if (form instanceof Line    ) return (Line    ) form;
-		if (form instanceof Arc     ) return (Arc     ) form;
-		Assert(false);
-		return null;
-	}
-	
-	public static Form[] convert(LineForm[] arr) {
-		if (arr == null) return null;
-		Form[] newArr = new Form[arr.length];
-		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
-		return newArr;
-	}
-	public static LineForm[] convert(Form[] arr) {
-		if (arr == null) return null;
-		LineForm[] newArr = new LineForm[arr.length];
-		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
-		return newArr;
 	}
 
 }

@@ -6,6 +6,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import java.util.Vector;
 
@@ -131,6 +132,15 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 		
 		return nearest;
+	}
+
+	public Rectangle2D.Float getViewRectangle() {
+		Rectangle2D.Float rect = new Rectangle2D.Float();
+		rect.x      = viewState.convertPos_ScreenToAngle_LongX(0);
+		rect.y      = viewState.convertPos_ScreenToAngle_LatY (0);
+		rect.width  = viewState.convertPos_ScreenToAngle_LongX(0+this.width)  - rect.x;
+		rect.height = viewState.convertPos_ScreenToAngle_LatY (0+this.height) - rect.y;
+		return rect;
 	}
 
 	@Override

@@ -12,6 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -58,9 +59,9 @@ class MainWindow extends StandardMainWindow {
 	private FileChooser fontFileChooser;
 	private LineForm[] lineforms = null;
 
-	MainWindow(AlphaCharEditor alphaCharEditor, String title) {
+	MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
 		super(title);
-		this.alphaCharEditor = alphaCharEditor;
+		this.alphaCharEditor = alphaCharEditor_;
 		
 		projectFileChooser = new FileChooser("Project-File", "project");
 		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
@@ -73,25 +74,50 @@ class MainWindow extends StandardMainWindow {
 		
 		generalOptionPanel = new GeneralOptionPanel(new GeneralOptionPanel.Context() {
 			@Override public void repaintView() { editorView.repaint(); }
-			
+			@Override public Rectangle2D.Float getViewRectangle() { return editorView.getViewRectangle(); }
+
 			@Override public void changeHighlightedForm(LineForm form) { editorView.setHighlightedForm(form); }
 			@Override public void changeSelectedForm   (LineForm form) { editorView.setSelectedForm   (form); }
 			@Override public void changeHighlightedGuideLine(GuideLine guideLine) { editorView.setHighlightedGuideLine(guideLine); }
 			
-			@Override public void addNewForm() {
-				// TODO: addNewForm
+			@Override
+			public void addGuideLine(GuideLine guideLine) {
+				alphaCharEditor.project.guideLines.add(guideLine);
+				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
+				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
 			}
-			@Override public void removeForm(int index) {
+
+			@Override
+			public void removeGuideLine(int index) {
+				alphaCharEditor.project.guideLines.remove(index);
+				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
+				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
+			}
+
+			@Override
+			public void addForm(LineForm form) {
+				if (form==null) return;
+				LineForm[] newArr = lineforms==null ? new LineForm[1] : Arrays.copyOf(lineforms, lineforms.length+1);
+				newArr[newArr.length-1] = form;
+				setNewArray(newArr);
+			}
+			@Override
+			public void removeForm(int index) {
 				if (lineforms==null || index<0 || index>=lineforms.length) return;
 				LineForm[] newArr = Arrays.copyOf(lineforms, lineforms.length-1);
 				for (int i=index; i<newArr.length; ++i)
 					newArr[i] = lineforms[i+1];
+				setNewArray(newArr);
+			}
+
+			private void setNewArray(LineForm[] newArr) {
 				lineforms = newArr;
 				editorView.setForms(lineforms);
-				generalOptionPanel.setForms(lineforms);
-				if (selectedChar!=null)
+				generalOptionPanel.setForms(lineforms,selectedChar);
+				if (selectedChar!=null) {
 					alphaCharEditor.project.font.put(selectedChar, LineForm.convert(lineforms));
-					
+					charRaster.updateCharList(alphaCharEditor.project.font,selectedChar);
+				}
 			}
 			
 		});
@@ -143,7 +169,7 @@ class MainWindow extends StandardMainWindow {
 		System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
 		lineforms = LineForm.convert(forms);
 		editorView.setForms(lineforms);
-		generalOptionPanel.setForms(lineforms);
+		generalOptionPanel.setForms(lineforms,selectedChar);
 	}
 	
 	private JMenuBar createMenuBar() {
@@ -156,8 +182,8 @@ class MainWindow extends StandardMainWindow {
 		projectMenu.add(createMenuItem("Save Project As ...",e->alphaCharEditor.saveProjectAs(      getProjectFileToSave())));
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
-		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.project.loadDefaultFont(createDefaultFormFactory()); updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ alphaCharEditor.project.loadFont(getFontFileToOpen(),createDefaultFormFactory()); updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.project.loadDefaultFont();                     updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ alphaCharEditor.project.loadFont  (      getFontFileToOpen()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font"        ,e->{ alphaCharEditor.project.saveFont  (this::getFontFileToSave  ); }));
 		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ alphaCharEditor.project.saveFontAs(      getFontFileToSave()); }));
 		
@@ -202,10 +228,6 @@ class MainWindow extends StandardMainWindow {
 	private File getFontFileToSave() { return getFileToSave(fontFileChooser); }
 	private File getFontFileToOpen() { return getFileToOpen(fontFileChooser); }
 
-	Form.Factory createDefaultFormFactory() {
-		return new LineForm.Factory(editorView.getViewState());
-	}
-
 	void updateAfterProjectLoad() {
 		editorView        .setGuideLines(alphaCharEditor.project.guideLines);
 		generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
@@ -213,7 +235,7 @@ class MainWindow extends StandardMainWindow {
 	}
 
 	private void updateAfterFontLoad() {
-		charRaster.updateCharList(alphaCharEditor.project.font);
+		charRaster.updateCharList(alphaCharEditor.project.font,null);
 		setSelectedChar(null);
 	}
 
@@ -241,24 +263,26 @@ class MainWindow extends StandardMainWindow {
 			formsPanel.setSelected(form);
 		}
 	
-		void setForms(LineForm[] forms) {
-			formsPanel.setForms(forms);
+		void setForms(LineForm[] forms, Character selectedChar) {
+			formsPanel.setForms(forms,selectedChar);
 		}
 		
 		interface Context {
-			void addNewForm();
+			void addForm(LineForm form);
 			void removeForm(int index);
+			void addGuideLine(GuideLine guideLine);
+			void removeGuideLine(int index);
 			void changeHighlightedForm(LineForm form);
 			void changeSelectedForm(LineForm form);
 			void changeHighlightedGuideLine(GuideLine guideLine);
 			void repaintView();
+			Rectangle2D.Float getViewRectangle();
 			
 		}
 	
 		private class FormsPanel extends JPanel {
 			private static final long serialVersionUID = 5266768936706086790L;
 			private final JList<LineForm> formList;
-			@SuppressWarnings("unused")
 			private final JButton btnNew;
 			private final JButton btnEdit;
 			private final JButton btnRemove;
@@ -278,8 +302,7 @@ class MainWindow extends StandardMainWindow {
 				JScrollPane formListScrollPane = new JScrollPane(formList);
 				
 				JPanel buttonPanel = new JPanel(new GridBagLayout());
-				//GridBagConstraints c = new GridBagConstraints();
-				buttonPanel.add(btnNew    = createButton("New"   , true , e->context.addNewForm()));
+				buttonPanel.add(btnNew    = createButton("New"   , false, e->context.addForm(createNewForm())));
 				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())));
 				buttonPanel.add(btnRemove = createButton("Remove", false, e->context.removeForm(formList.getSelectedIndex())));
 				
@@ -292,15 +315,24 @@ class MainWindow extends StandardMainWindow {
 				btnEdit  .setEnabled(enabled);
 				btnRemove.setEnabled(enabled);
 			}
-	
+
+			private LineForm createNewForm() {
+				Object result = JOptionPane.showInputDialog(this, "Select type of new form:", "Form Type", JOptionPane.QUESTION_MESSAGE, null, LineForm.FormType.values(), null);
+				if (result==null) return null;
+				if (result instanceof LineForm.FormType)
+					return LineForm.createNew((LineForm.FormType) result, context.getViewRectangle());
+				return null;
+			}
+
 			void setSelected(LineForm form) {
 				if (form==null) formList.clearSelection();
 				else formList.setSelectedValue(form, true);
 				setButtonsEnabled(form!=null);
 			}
 	
-			void setForms(LineForm[] forms) {
+			void setForms(LineForm[] forms, Character selectedChar) {
 				formList.setModel(new FormListModel(forms));
+				btnNew.setEnabled(selectedChar!=null);
 			}
 	
 			private final class FormListModel implements ListModel<LineForm> {
@@ -327,10 +359,8 @@ class MainWindow extends StandardMainWindow {
 		private class GuideLinesPanel extends JPanel {
 			private static final long serialVersionUID = -2804258616332267816L;
 			private final JList<GuideLine> guideLineList;
-			@SuppressWarnings("unused")
 			private final JButton btnNew;
 			private final JButton btnEdit;
-			@SuppressWarnings("unused")
 			private final JButton btnRemove;
 	
 			GuideLinesPanel() {
@@ -348,38 +378,63 @@ class MainWindow extends StandardMainWindow {
 				JScrollPane guideLineListScrollPane = new JScrollPane(guideLineList);
 				
 				JPanel buttonPanel = new JPanel(new GridBagLayout());
-				//GridBagConstraints c = new GridBagConstraints();
-				buttonPanel.add(btnNew    = createButton("New"   , false, e->{}));
+				buttonPanel.add(btnNew    = createButton("New"   , true , e->context.addGuideLine(createNewGuideLine())));
 				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->editGuideLine(guideLineList.getSelectedValue())));
-				buttonPanel.add(btnRemove = createButton("Remove", false, e->{}));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->context.removeGuideLine(guideLineList.getSelectedIndex())));
 				
 				add(guideLineListScrollPane,BorderLayout.CENTER);
 				add(buttonPanel,BorderLayout.SOUTH);
 			}
 	
+			private void setButtonsEnabled(boolean enabled) {
+				btnNew   .setEnabled(true);
+				btnEdit  .setEnabled(enabled);
+				btnRemove.setEnabled(enabled);
+			}
+
+			private GuideLine createNewGuideLine() {
+				GuideLine.Type type = getGuideLineType();
+				if (type==null) return null;
+				
+				Float pos = getPosOfGuideLine(type, null);
+				if (pos==null) return null;
+				
+				return new GuideLine(type, pos);
+			}
+			
 			private void editGuideLine(GuideLine selected) {
 				if (selected==null) return;
 				
-				String message = String.format("Set %s position of %s guideline:", selected.type.axis, selected.type.toString().toLowerCase());
-				String newStr = JOptionPane.showInputDialog(this, message, selected.pos);
-				if (newStr==null) return;
+				Float pos = getPosOfGuideLine(selected.type, selected.pos);
+				if (pos==null) return;
+				
+				selected.pos = pos;
+				context.repaintView();
+				guideLineList.repaint();
+			}
+			
+			private GuideLine.Type getGuideLineType() {
+				Object result = JOptionPane.showInputDialog(this, "Select type of new GuideLine:", "GuideLine Type", JOptionPane.QUESTION_MESSAGE, null, GuideLine.Type.values(), null);
+				if (result==null) return null;
+				if (!(result instanceof GuideLine.Type)) return null;
+				return (GuideLine.Type) result;
+			}
+	
+			private Float getPosOfGuideLine(GuideLine.Type type, Float initialPos) {
+				String message = String.format("Set %s position of %s guideline:", type.axis, type.toString().toLowerCase());
+				String newStr = JOptionPane.showInputDialog(this, message);
+				if (newStr==null) return null;
 				
 				try {
-					selected.pos = Float.parseFloat(newStr);
-					context.repaintView();
-					guideLineList.repaint();
+					return Float.parseFloat(newStr);
 				} catch (NumberFormatException e) {
 					message = String.format("Can't parse \"%s\" as numeric value.", newStr);
 					JOptionPane.showMessageDialog(this, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
 				}
+				
+				return null;
 			}
-	
-			private void setButtonsEnabled(boolean enabled) {
-				//btnNew   .setEnabled(enabled);
-				btnEdit  .setEnabled(enabled);
-				//btnRemove.setEnabled(enabled);
-			}
-	
+
 			void setGuideLines(Vector<GuideLine> guideLines) {
 				guideLineList.setModel(new GuideLineListModel(guideLines));
 			}
@@ -466,16 +521,23 @@ class MainWindow extends StandardMainWindow {
 			setPreferredSize(2*border + 10*fieldWidth, 2*border +  8*fieldHeight);
 		}
 
-		public void updateCharList(HashMap<Character, Form[]> font) {
+		private char[] createCharArray(char first, char last) {
+			char[] chars = new char[last-first+1];
+			for (int i=0; i<chars.length; ++i) chars[i] = (char) (first+i);
+			return chars;
+		}
+
+		public void updateCharList(HashMap<Character, Form[]> font, Character selectedChar) {
 			for (int b=0; b<charExist.length; b++) {
 				for (int ch=0; ch<charExist[b].length; ch++) {
 					Form[] forms = font==null ? null : font.get(chars[b][ch]);
-					charExist[b][ch] = forms!=null;
+					charExist[b][ch] = forms!=null && forms.length>0;
 				}
 			}
-			highlightedField = null;
-			selectedField = null;
-			selectedChar = null;
+			this.highlightedField = null;
+			this.selectedField = getField(selectedChar);
+			this.selectedChar = selectedChar;
+			System.out.printf("SelectedChar: %s (%s)%n", this.selectedChar, this.selectedField);
 			repaint();
 		}
 
@@ -486,13 +548,15 @@ class MainWindow extends StandardMainWindow {
 		private void setSelectedField(Point p) {
 			Point field = getField(p);
 			boolean repaint = false;
-			if (field==null) {
-				repaint = selectedField!=null;
-				selectedField=null;
-			} else if (selectedField==null || !selectedField.equals(field)) {
-				repaint = true;
-				selectedField = field; 
-			}
+//			if (field==null) {
+//				repaint = selectedField!=null;
+//				selectedField=null;
+//			} else if (selectedField==null || !selectedField.equals(field)) {
+//				repaint = true;
+//				selectedField = field; 
+//			}
+			repaint = true;
+			selectedField = field; 
 			updateSelectedChar();
 			if (repaint) repaint();
 		}
@@ -500,14 +564,42 @@ class MainWindow extends StandardMainWindow {
 		private void setHighlightedField(Point p) {
 			Point field = getField(p);
 			boolean repaint = false;
-			if (field==null) {
-				repaint = highlightedField!=null;
-				highlightedField=null;
-			} else if (highlightedField==null || !highlightedField.equals(field)) {
-				repaint = true;
-				highlightedField = field; 
-			}
+//			if (field==null) {
+//				repaint = highlightedField!=null;
+//				highlightedField=null;
+//			} else if (highlightedField==null || !highlightedField.equals(field)) {
+//				repaint = true;
+//				highlightedField = field; 
+//			}
+			repaint = true;
+			highlightedField = field; 
 			if (repaint) repaint();
+		}
+
+		private Point getField(Character ch) {
+			if (ch==null || view==null) return null;
+			int block = -1;
+			int index = -1;
+			for (int b=0; b<chars.length; b++) {
+				for (int i=0; i<chars[b].length; i++) {
+					if (chars[b][i]==ch) {
+						block = b;
+						index = i;
+						break;
+					}
+				}
+				if (block>=0) break;
+			}
+			
+//			// from <getCharAt>
+//			int y = field.y-rows[block];
+//			int x = field.x;
+			int iWidth = view.width/fieldWidth;
+//			int i = x + iWidth*y;
+			
+			int x =  index % iWidth;
+			int y = (index / iWidth)+rows[block];
+			return new Point(x, y);
 		}
 
 		private Point getField(Point p) {
@@ -521,40 +613,33 @@ class MainWindow extends StandardMainWindow {
 			return new Point(ix, iy); 
 		}
 
-		private void updateSelectedChar() {
-			if (selectedField != null && view != null) {
-				int block = -1;
-				for (int i=0; i<rows.length; i++) {
-					if (selectedField.y>=rows[i] && (i+1>=rows.length || selectedField.y<rows[i+1])) {
-						block  = i;
-						break;
-					}
-				}
-				if (block>=0) {
-					int y = selectedField.y-rows[block];
-					int x = selectedField.x;
-					int iWidth = view.width/fieldWidth;
-					int i = x + iWidth*y;
-					if (i<chars[block].length) {
-						char ch = chars[block][i];
-						if (selectedChar==null || !selectedChar.equals(ch)) {
-							selectedChar = ch;
-							listener.selectedCharChanged(selectedChar);
-						}
-						return;
-					}
+		private Character getCharAt(Point field) {
+			if (field==null || view==null) return null;
+			int block = -1;
+			for (int b=0; b<rows.length; b++) {
+				if (field.y>=rows[b] && (b+1>=rows.length || field.y<rows[b+1])) {
+					block  = b;
+					break;
 				}
 			}
-			if (selectedChar!=null) {
-				selectedChar = null;
-				listener.selectedCharChanged(selectedChar);
+			if (block>=0) {
+				int y = field.y-rows[block];
+				int x = field.x;
+				int iWidth = view.width/fieldWidth;
+				int i = x + iWidth*y;
+				if (i<chars[block].length) {
+					return chars[block][i];
+				}
 			}
+			return null;
 		}
 
-		private char[] createCharArray(char first, char last) {
-			char[] chars = new char[last-first+1];
-			for (int i=0; i<chars.length; ++i) chars[i] = (char) (first+i);
-			return chars;
+		private void updateSelectedChar() {
+			Character ch = getCharAt(selectedField);
+			if (ch!=null && selectedChar != null && selectedChar.equals(ch)) return;
+			if (ch==null && selectedChar == null) return; 
+			selectedChar = ch;
+			listener.selectedCharChanged(selectedChar);
 		}
 
 		@Override
