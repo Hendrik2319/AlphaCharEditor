@@ -1,5 +1,7 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
+import static net.schwarzbaer.java.tools.alphachareditor.LineForm.Assert;
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -8,10 +10,9 @@ import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 
 import net.schwarzbaer.image.alphachar.Form;
-import net.schwarzbaer.image.bumpmapping.BumpMapping;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
-public interface LineForm {
+interface LineForm {
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
@@ -88,15 +89,15 @@ public interface LineForm {
 		return null;
 	}
 
-	public static class Factory implements Form.Factory {
+	static class Factory implements Form.Factory {
 		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(values); }
 		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(values); }
 		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(values); }
 	}
 	
-	public enum FormType { PolyLine, Line, Arc }
+	enum FormType { PolyLine, Line, Arc }
 	
-	public static class PolyLine extends Form.PolyLine implements LineForm {
+	static class PolyLine extends Form.PolyLine implements LineForm {
 
 		@Override
 		public String toString() {
@@ -144,7 +145,7 @@ public interface LineForm {
 		}
 	}
 	
-	public static class Line extends Form.Line implements LineForm {
+	static class Line extends Form.Line implements LineForm {
 		
 		enum SelectedPoint { P1,P2 } 
 		
@@ -203,8 +204,24 @@ public interface LineForm {
 		}
 	}
 	
-	public static class Arc extends Form.Arc implements LineForm {
+	static class Arc extends Form.Arc implements LineForm {
 
+		public ArcPoint highlightedPoint = null;
+		
+		static class ArcPoint {
+			enum Type { Radius, Center, Start, End }
+			final Type type;
+			final double x;
+			final double y;
+			
+			ArcPoint(Type type, double x, double y) {
+				this.type = type;
+				this.x = x;
+				this.y = y;
+				Assert(this.type!=null);
+			}
+		}
+		
 		@Override
 		public String toString() {
 			return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI);
@@ -230,9 +247,18 @@ public interface LineForm {
 			int ySs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aStart)));
 			int xEs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aEnd  )));
 			int yEs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aEnd  )));
-			EditorView.drawPoint(g2,xSs,ySs,false);
-			EditorView.drawPoint(g2,xEs,yEs,false);
-			EditorView.drawPoint(g2,xCs,yCs,false);
+			EditorView.drawPoint(g2,xSs,ySs,isType(highlightedPoint,ArcPoint.Type.Start ));
+			EditorView.drawPoint(g2,xEs,yEs,isType(highlightedPoint,ArcPoint.Type.End   ));
+			EditorView.drawPoint(g2,xCs,yCs,isType(highlightedPoint,ArcPoint.Type.Center));
+			if (isType(highlightedPoint,ArcPoint.Type.Radius)) {
+				int xRs = viewState.convertPos_AngleToScreen_LongX((float) highlightedPoint.x);
+				int yRs = viewState.convertPos_AngleToScreen_LatY ((float) highlightedPoint.y);
+				EditorView.drawPoint(g2,xRs,yRs,true);
+			}
+		}
+		
+		private boolean isType(ArcPoint p, ArcPoint.Type t) {
+			return p!=null && p.type==t;
 		}
 
 		@Override
@@ -241,7 +267,7 @@ public interface LineForm {
 			if (Math.abs(dC-r)>maxDist) return null;
 			
 			double w = Math2.angle(xC,yC,x,y);
-			if (BumpMapping.isInsideAngleRange(aStart, aEnd, w)) {
+			if (Math2.isInsideAngleRange(aStart, aEnd, w)) {
 				return Math.abs(dC-r);
 			}
 			double xS = r*Math.cos(aStart);
