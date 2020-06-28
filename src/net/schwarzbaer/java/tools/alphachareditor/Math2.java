@@ -23,4 +23,11 @@ public class Math2 {
 	public static boolean isInsideAngleRange(double minW, double maxW, double w) {
 		return BumpMapping.isInsideAngleRange(minW, maxW, w);
 	}
+
+	public static double computeAngleDist(double a1, double a2) {
+		// result: -Math.PI ... Math.PI
+		a2 = normalizeAngle(a1, a2); // a2 in a1...a1+2*Math.PI
+		if (a2>a1+Math.PI) return a2-a1-2*Math.PI;
+		return a2-a1;
+	}
 }

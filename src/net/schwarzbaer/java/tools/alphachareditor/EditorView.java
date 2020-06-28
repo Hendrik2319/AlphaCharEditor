@@ -9,6 +9,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import java.util.Vector;
+import java.util.function.BiConsumer;
 
 import javax.swing.JPanel;
 
@@ -64,8 +65,13 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		void updateHighlightedForm(LineForm form);
 	}
 
-	public double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
-	public double stickToGuideLineY(float y) { return GuideLine.stickToGuideLines(y, Type.Horizontal, viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+	double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+	double stickToGuideLineY(float y) { return GuideLine.stickToGuideLines(y, Type.Horizontal, viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+	
+	void forEachGuideLines(BiConsumer<GuideLine.Type,Float> action) {
+		for (GuideLine gl:guideLines)
+			action.accept(gl.type,gl.pos);
+	}
 
 	@Override public void mouseClicked (MouseEvent e) { if (formEditing!=null) deselect();            else setSelectedForm(e); }
 	@Override public void mouseEntered (MouseEvent e) { if (formEditing!=null) formEditing.onEntered (e); else setHighlightedForm(e.getPoint()); setHighlightedGuideLine(null); }
@@ -199,10 +205,10 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 		@Override
 		protected void determineMinMax(MapLatLong min, MapLatLong max) {
-			min.latitude_y  = (float) 0;
-			min.longitude_x = (float) 0;
-			max.latitude_y  = (float) 200;
-			max.longitude_x = (float) 400;
+			min.latitude_y  = (float) -50;
+			min.longitude_x = (float) -100;
+			max.latitude_y  = (float) 150;
+			max.longitude_x = (float) 300;
 		}
 	}
 	

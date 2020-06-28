@@ -6,7 +6,10 @@ import java.awt.GridBagLayout;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
+import java.util.Arrays;
+import java.util.Vector;
 import java.util.function.Consumer;
+import java.util.function.DoubleFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -262,6 +265,8 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		private int moveOffsetX = -1;
 		private int moveOffsetY = -1;
 		private ArcPoint selectedPoint = null;
+		private double[] glAngles = null;
+		private double maxGlAngle = Double.NaN;
 		
 		public ArcEditing(Arc form, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(form, viewState, editorView);
@@ -313,11 +318,11 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			double dC = Math2.dist(xC, yC, xM, yM);
 			double dS = Math2.dist(xS, yS, xM, yM);
 			double dE = Math2.dist(xE, yE, xM, yM);
-			if (dC<dS && dC<dE && dC<maxDist) return new Arc.ArcPoint(Arc.ArcPoint.Type.Center, xC,yC);
-			if (dS<dE && dS<dC && dS<maxDist) return new Arc.ArcPoint(Arc.ArcPoint.Type.Start , xS,yS);
-			if (dE<dC && dE<dS && dE<maxDist) return new Arc.ArcPoint(Arc.ArcPoint.Type.End   , xE,yE);
+			if (dC<dS && dC<dE && dC<maxDist && (!isCxFixed || !isCyFixed)) return new Arc.ArcPoint(Arc.ArcPoint.Type.Center, xC,yC);
+			if (dS<dE && dS<dC && dS<maxDist &&  !isAStartFixed) return new Arc.ArcPoint(Arc.ArcPoint.Type.Start , xS,yS);
+			if (dE<dC && dE<dS && dE<maxDist &&  !isAEndFixed  ) return new Arc.ArcPoint(Arc.ArcPoint.Type.End   , xE,yE);
 			
-			if (Math.abs(dC-form.r) < maxDist) {
+			if (Math.abs(dC-form.r) < maxDist && !isRFixed) {
 				double angle = Math2.angle(xC, yC, xM, yM);
 				if (Math2.isInsideAngleRange(form.aStart, form.aEnd, angle)) {
 					double xR = xC+form.r*Math.cos(angle);
@@ -337,9 +342,15 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			int x = e.getX();
 			int y = e.getY();
 			selectedPoint = getNext(x,y);
+			form.highlightedPoint = selectedPoint;
 			if (selectedPoint!=null) {
 				if (selectedPoint.type==Type.Start || selectedPoint.type==Type.End) {
-					// TODO: compute intersection points with guide lines
+					glAngles = computeIntersectionPointsWithGuideLines(form.xC,form.yC,form.r);
+					maxGlAngle = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE)/form.r;
+					//System.out.printf(Locale.ENGLISH, "maxGlAngle: %1.4f (%1.2f°)%n", maxGlAngle, maxGlAngle*180/Math.PI);
+					//System.out.printf(Locale.ENGLISH, "glAngles:%n");
+					//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.4f", d            )));
+					//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.2f°", d*180/Math.PI)));
 				}
 				int xs = viewState.convertPos_AngleToScreen_LongX((float) selectedPoint.x);
 				int ys = viewState.convertPos_AngleToScreen_LatY ((float) selectedPoint.y);
@@ -353,8 +364,46 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			editorView.repaint();
 			return false;
 		}
+		
+		private double[] computeIntersectionPointsWithGuideLines(double xC, double yC, double r) {
+			Vector<Double> anglesVec = new Vector<>();
+			editorView.forEachGuideLines((type,pos)->{
+				switch (type) {
+				case Horizontal:
+					if (yC-r<pos && pos<yC+r) {
+						double a = Math.asin((pos-yC)/r);
+						anglesVec.add(a);
+						anglesVec.add(Math.PI-a);
+					}
+					break;
+				case Vertical:
+					if (xC-r<pos && pos<xC+r) {
+						double a = Math.acos((pos-xC)/r);
+						anglesVec.add( a);
+						anglesVec.add(-a);
+					}
+					break;
+				}
+			});
+			double[] anglesArr = anglesVec.stream().mapToDouble(d->d).toArray();
+			for (int i=0; i<anglesArr.length; i++) {
+				while (anglesArr[i] <  0        ) anglesArr[i] += Math.PI*2;
+				while (anglesArr[i] >= Math.PI*2) anglesArr[i] -= Math.PI*2;
+			}
+			Arrays.sort(anglesArr);
+			return anglesArr;
+		}
+
+		@SuppressWarnings("unused")
+		private String toString(double[] values, DoubleFunction<? extends String> mapper) {
+			return Arrays.toString(toStringArr(values, mapper));
+		}
+		private String[] toStringArr(double[] values, DoubleFunction<? extends String> mapper) {
+			return Arrays.stream(values).mapToObj(mapper).toArray(n->new String[n]);
+		}
 		@Override public boolean onReleased(MouseEvent e) {
 			selectedPoint = null;
+			form.highlightedPoint = null;
 			moveOffsetX = -1;
 			moveOffsetY = -1;
 			editorView.repaint();
@@ -364,28 +413,61 @@ abstract class LineFormEditing<FormType extends LineForm> {
 			int x = e.getX();
 			int y = e.getY();
 			if (selectedPoint!=null) {
+				form.highlightedPoint = selectedPoint;
 				switch (selectedPoint.type) {
-				case Radius: break; // TODO
-				case Center:
-					if (!isCxFixed) cxField.setValue(form.xC = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
-					if (!isCyFixed) cyField.setValue(form.yC = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
+				case Radius:
+					selectedPoint.x = viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX);
+					selectedPoint.y = viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY);
+					form.r = Math2.dist(form.xC, form.yC, selectedPoint.x, selectedPoint.y);
+					rField.setValue(form.r);
 					break;
-				case End  : break; // TODO
-				case Start: break; // TODO
-//				case P1:
-//					if (!isX1Fixed) x1Field.setValue(form.x1 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
-//					if (!isY1Fixed) y1Field.setValue(form.y1 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
-//					break;
-//				case P2:
-//					if (!isX2Fixed) x2Field.setValue(form.x2 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
-//					if (!isY2Fixed) y2Field.setValue(form.y2 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
-//					break;
+				case Center:
+					if (!isCxFixed) cxField.setValue(selectedPoint.x = form.xC = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX)));
+					if (!isCyFixed) cyField.setValue(selectedPoint.y = form.yC = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY)));
+					break;
+				case End  : {
+					double a = computeAngle(x,y); 
+					while (a<form.aStart          ) a+=Math.PI*2;
+					while (a>form.aStart+Math.PI*2) a-=Math.PI*2;
+					//if (form.aEnd != a) System.out.printf(Locale.ENGLISH, "form.aEnd: %1.4f%n", a);
+					form.aEnd = a;
+					aEndField.setValue(form.aEnd);
+				} break;
+				case Start: {
+					double a = computeAngle(x,y); 
+					while (a>form.aEnd          ) a-=Math.PI*2;
+					while (a<form.aEnd-Math.PI*2) a+=Math.PI*2;
+					//if (form.aStart != a) System.out.printf(Locale.ENGLISH, "form.aStart: %1.4f%n", a);
+					form.aStart = a;
+					aStartField.setValue(form.aStart);
+				} break;
 				}
 				editorView.repaint();
 				return true;
 			}
 			editorView.repaint();
 			return false;
+		}
+
+		private double computeAngle(int x, int y) {
+			float xM = viewState.convertPos_ScreenToAngle_LongX(x+moveOffsetX);
+			float yM = viewState.convertPos_ScreenToAngle_LatY (y+moveOffsetY);
+			double aM = Math2.angle(form.xC, form.yC, xM, yM);
+			double aMinDist = Math.PI*2;
+			Double aMin = null;
+			double[] aDistArr = new double[glAngles.length];
+			for (int i=0; i<glAngles.length; i++) {
+				double a = glAngles[i];
+				double aDist = Math.abs(Math2.computeAngleDist(a,aM));
+				aDistArr[i] = aDist;
+				if (aDist<maxGlAngle && (aMin==null || aDist<aMinDist)) {
+					aMinDist = aDist;
+					aMin = a;
+				}
+			}
+			//System.out.printf(Locale.ENGLISH, "AngleDistances: %s%n", toString(aDistArr, d->String.format(Locale.ENGLISH, "%1.2f°", d*180/Math.PI)));
+			if (aMin!=null) return aMin;
+			return aM;
 		}
 	}
 
@@ -397,7 +479,7 @@ abstract class LineFormEditing<FormType extends LineForm> {
 		@Override public JPanel createValuePanel() {
 			JPanel panel = new JPanel(new GridBagLayout());
 			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
-			// TODO
+			// TODO: PolyLineEditing.createValuePanel
 			return panel;
 		}
 		

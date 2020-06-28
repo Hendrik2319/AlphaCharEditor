@@ -1,7 +1,5 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
-import static net.schwarzbaer.java.tools.alphachareditor.LineForm.Assert;
-
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -211,8 +209,8 @@ interface LineForm {
 		static class ArcPoint {
 			enum Type { Radius, Center, Start, End }
 			final Type type;
-			final double x;
-			final double y;
+			double x;
+			double y;
 			
 			ArcPoint(Type type, double x, double y) {
 				this.type = type;
