@@ -1,5 +1,6 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -15,17 +16,24 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.ListModel;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.ListDataEvent;
+import javax.swing.event.ListDataListener;
 
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint.Type;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line.SelectedPoint;
+import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line.LinePoint;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.PolyLine;
 
 abstract class LineFormEditing<HighlightedPointType> {
@@ -50,11 +58,14 @@ abstract class LineFormEditing<HighlightedPointType> {
 		this.editorView = editorView;
 	}
 	
+	public void stopEditing() {}
 	public LineForm<HighlightedPointType> getForm() { return form; }
 
 	protected abstract HighlightedPointType getNext(int x, int y);
-	protected abstract Point computePickOffset(int x, int y, HighlightedPointType selectedPoint);
-	protected abstract void modifySelectedPoint(HighlightedPointType selectedPoint, int x, int y, Point pickOffset);
+	protected abstract void  prepareDragging    (HighlightedPointType selectedPoint);
+	protected abstract float getSelectedPointX (HighlightedPointType selectedPoint);
+	protected abstract float getSelectedPointY (HighlightedPointType selectedPoint);
+	protected abstract void  modifySelectedPoint(HighlightedPointType selectedPoint, int x, int y, Point pickOffset);
 
 	public abstract JPanel createValuePanel();
 	public void onEntered (MouseEvent e) { form.setHighlightedPoint(getNext(e.getX(),e.getY())); editorView.repaint(); }
@@ -68,19 +79,14 @@ abstract class LineFormEditing<HighlightedPointType> {
 		selectedPoint = getNext(x,y);
 		form.setHighlightedPoint(selectedPoint);
 		if (selectedPoint!=null) {
-			pickOffset = computePickOffset(x,y,selectedPoint);
+			prepareDragging(selectedPoint);
+			int xs = viewState.convertPos_AngleToScreen_LongX((float) getSelectedPointX(selectedPoint));
+			int ys = viewState.convertPos_AngleToScreen_LatY ((float) getSelectedPointY(selectedPoint));
+			pickOffset = new Point(xs-x, ys-y);
 			Assert(pickOffset!=null);
 			editorView.repaint();
 			return true;
 		}
-		pickOffset = null;
-		editorView.repaint();
-		return false;
-	}
-	
-	public boolean onReleased(MouseEvent e) {
-		selectedPoint = null;
-		form.setHighlightedPoint(null);
 		pickOffset = null;
 		editorView.repaint();
 		return false;
@@ -95,6 +101,14 @@ abstract class LineFormEditing<HighlightedPointType> {
 			editorView.repaint();
 			return true;
 		}
+		editorView.repaint();
+		return false;
+	}
+
+	public boolean onReleased(MouseEvent e) {
+		selectedPoint = null;
+		form.setHighlightedPoint(null);
+		pickOffset = null;
 		editorView.repaint();
 		return false;
 	}
@@ -185,9 +199,8 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 	}
 
-	static class LineEditing extends LineFormEditing<Line.SelectedPoint> {
+	static class LineEditing extends LineFormEditing<LinePoint> {
 		
-		private int x1s,y1s,x2s,y2s;
 		private GenericTextField<Double> x1Field = null;
 		private GenericTextField<Double> y1Field = null;
 		private GenericTextField<Double> x2Field = null;
@@ -196,7 +209,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		private boolean isY1Fixed = false;
 		private boolean isX2Fixed = false;
 		private boolean isY2Fixed = false;
-		private Line line;
+		private final Line line;
 		
 		public LineEditing(Line line, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(line, viewState, editorView);
@@ -233,28 +246,39 @@ abstract class LineFormEditing<HighlightedPointType> {
 			return panel;
 		}
 
-		@Override protected SelectedPoint getNext(int x, int y) {
-			x1s = viewState.convertPos_AngleToScreen_LongX((float) line.x1);
-			y1s = viewState.convertPos_AngleToScreen_LatY ((float) line.y1);
-			x2s = viewState.convertPos_AngleToScreen_LongX((float) line.x2);
-			y2s = viewState.convertPos_AngleToScreen_LatY ((float) line.y2);
-			double d1 = Math2.dist(x1s, y1s, x, y);
-			double d2 = Math2.dist(x2s, y2s, x, y);
-			if (d1<d2 && d1<EditorView.MAX_NEAR_DISTANCE) return SelectedPoint.P1;
-			if (d2<d1 && d2<EditorView.MAX_NEAR_DISTANCE) return SelectedPoint.P2;
+		@Override protected LinePoint getNext(int x, int y) {
+			float xu = viewState.convertPos_ScreenToAngle_LongX(x);
+			float yu = viewState.convertPos_ScreenToAngle_LatY (y);
+			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
+			
+			double d1 = Math2.dist(line.x1, line.y1, xu, yu);
+			double d2 = Math2.dist(line.x2, line.y2, xu, yu);
+			if (d1<d2 && d1<maxDist) return LinePoint.P1;
+			if (d2<d1 && d2<maxDist) return LinePoint.P2;
 			return null;
 		}
 		
-		@Override protected Point computePickOffset(int x, int y, SelectedPoint selectedPoint) {
+		@Override protected void prepareDragging(LinePoint selectedPoint) {}
+		@Override protected float getSelectedPointX(LinePoint selectedPoint) {
 			switch (selectedPoint) {
-			case P1: return new Point(x1s-x, y1s-y);
-			case P2: return new Point(x2s-x, y2s-y);
+			case P1: return (float) line.x1;
+			case P2: return (float) line.x2;
 			}
-			return null;
+			Assert(false);
+			return 0;
+		}
+
+		@Override protected float getSelectedPointY(LinePoint selectedPoint) {
+			switch (selectedPoint) {
+			case P1: return (float) line.y1;
+			case P2: return (float) line.y2;
+			}
+			Assert(false);
+			return 0;
 		}
 
 		@Override
-		protected void modifySelectedPoint(SelectedPoint selectedPoint, int x, int y, Point pickOffset) {
+		protected void modifySelectedPoint(LinePoint selectedPoint, int x, int y, Point pickOffset) {
 			x+=pickOffset.x;
 			y+=pickOffset.y;
 			switch (selectedPoint) {
@@ -270,7 +294,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 	}
 	
-	static class ArcEditing extends LineFormEditing<Arc.ArcPoint> {
+	static class ArcEditing extends LineFormEditing<ArcPoint> {
 		
 		private GenericTextField<Double>     cxField = null;
 		private GenericTextField<Double>     cyField = null;
@@ -324,7 +348,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			return panel;
 		}
 
-		@Override protected Arc.ArcPoint getNext(int x, int y) {
+		@Override protected ArcPoint getNext(int x, int y) {
 			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
 			float xM = viewState.convertPos_ScreenToAngle_LongX(x);
 			float yM = viewState.convertPos_ScreenToAngle_LatY (y);
@@ -339,22 +363,24 @@ abstract class LineFormEditing<HighlightedPointType> {
 			double dC = Math2.dist(xC, yC, xM, yM);
 			double dS = Math2.dist(xS, yS, xM, yM);
 			double dE = Math2.dist(xE, yE, xM, yM);
-			if (dC<dS && dC<dE && dC<maxDist && (!isCxFixed || !isCyFixed)) return new Arc.ArcPoint(Arc.ArcPoint.Type.Center, xC,yC);
-			if (dS<dE && dS<dC && dS<maxDist &&  !isAStartFixed) return new Arc.ArcPoint(Arc.ArcPoint.Type.Start , xS,yS);
-			if (dE<dC && dE<dS && dE<maxDist &&  !isAEndFixed  ) return new Arc.ArcPoint(Arc.ArcPoint.Type.End   , xE,yE);
+			if (dC<dS && dC<dE && dC<maxDist && (!isCxFixed || !isCyFixed)) return new ArcPoint(ArcPoint.Type.Center, xC,yC);
+			if (dS<dE && dS<dC && dS<maxDist &&  !isAStartFixed) return new ArcPoint(ArcPoint.Type.Start , xS,yS);
+			if (dE<dC && dE<dS && dE<maxDist &&  !isAEndFixed  ) return new ArcPoint(ArcPoint.Type.End   , xE,yE);
 			
 			if (Math.abs(dC-arc.r) < maxDist && !isRFixed) {
 				double angle = Math2.angle(xC, yC, xM, yM);
 				if (Math2.isInsideAngleRange(arc.aStart, arc.aEnd, angle)) {
 					double xR = xC+arc.r*Math.cos(angle);
 					double yR = yC+arc.r*Math.sin(angle);
-					return new Arc.ArcPoint(Arc.ArcPoint.Type.Radius,xR,yR);
+					return new ArcPoint(ArcPoint.Type.Radius,xR,yR);
 				}
 			}
 			return null;
 		}
-		
-		@Override protected Point computePickOffset(int x, int y, ArcPoint selectedPoint) {
+
+		@Override protected float getSelectedPointX(ArcPoint selectedPoint) { return (float) selectedPoint.x; }
+		@Override protected float getSelectedPointY(ArcPoint selectedPoint) { return (float) selectedPoint.y; }
+		@Override protected void  prepareDragging  (ArcPoint selectedPoint) {
 			if (selectedPoint.type==Type.Start || selectedPoint.type==Type.End) {
 				glAngles = computeIntersectionPointsWithGuideLines(arc.xC,arc.yC,arc.r);
 				maxGlAngle = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE)/arc.r;
@@ -363,9 +389,6 @@ abstract class LineFormEditing<HighlightedPointType> {
 				//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.4f", d            )));
 				//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.2f°", d*180/Math.PI)));
 			}
-			int xs = viewState.convertPos_AngleToScreen_LongX((float) selectedPoint.x);
-			int ys = viewState.convertPos_AngleToScreen_LatY ((float) selectedPoint.y);
-			return new Point(xs-x, ys-y);
 		}
 
 		private double[] computeIntersectionPointsWithGuideLines(double xC, double yC, double r) {
@@ -460,29 +483,96 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 	}
 
-	static class PolyLineEditing extends LineFormEditing<Integer> {
+	static class PolyLineEditing extends LineFormEditing<Integer> implements PolyLine.HighlightListener {
 		
 		private final PolyLine polyLine;
 		private boolean isXFixed;
 		private boolean isYFixed;
+		private JList<String> pointList = null;
+		@SuppressWarnings("unused") private JButton btnNew = null;
+		private JButton btnRemove = null;
+		private PointListModel pointListModel = null;
+		
 		public PolyLineEditing(PolyLine polyLine, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(polyLine, viewState, editorView);
+			Assert(polyLine!=null);
 			this.polyLine = polyLine;
 			this.polyLine.setHighlightedPoint(e==null ? null : getNext(e.getX(),e.getY()));
+			this.polyLine.setHighlightListener(this);
 		}
-		
+		@Override public void stopEditing() { polyLine.setHighlightListener(this); }
+
+		@Override public void highlightedPointChanged(Integer index_) {
+			int newIndex = index_==null ? -1 : index_.intValue();
+			int oldIndex = pointList.getSelectedIndex();
+			if (newIndex!=oldIndex) {
+				if (newIndex<0) pointList.clearSelection();
+				else pointList.setSelectedIndex(newIndex);
+			}
+		}
+
 		@Override public JPanel createValuePanel() {
-			JPanel panel = new JPanel(new GridBagLayout());
+			pointList = new JList<>(pointListModel = new PointListModel());
+			pointList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+			pointList.addListSelectionListener(e->{
+				int index = pointList.getSelectedIndex();
+				polyLine.setHighlightedPoint(index<0 ? null : index);
+				editorView.repaint();
+				setButtonsEnabled(index>=0);
+			});
+			
+			JPanel buttonPanel = new JPanel(new GridBagLayout());
+			buttonPanel.add(btnNew    = MainWindow.createButton("New"   , true , e->{}));
+			buttonPanel.add(btnRemove = MainWindow.createButton("Remove", false, e->removePoint(pointList.getSelectedIndex())));
+			
+			JPanel panel = new JPanel(new BorderLayout(3,3));
 			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
-			// TODO: PolyLineEditing.createValuePanel
+			panel.add(new JScrollPane(pointList),BorderLayout.CENTER);
+			panel.add(buttonPanel,BorderLayout.SOUTH);
+			
 			return panel;
 		}
-
-		private void updateLine(Integer selectedPoint) {
-			// TODO Auto-generated method stub
-			
+		
+		private void setButtonsEnabled(boolean enabled) {
+			//btnNew   .setEnabled(enabled);
+			btnRemove.setEnabled(enabled);
+		}
+		
+		private void removePoint(int index) {
+			if (index<0 || index>=polyLine.points.size()) return;
+			polyLine.points.remove(index);
+			polyLine.setHighlightedPoint(null);
+			pointListModel.fireRowRemoved(index);
+			editorView.repaint();
 		}
 
+		private class PointListModel implements ListModel<String> {
+			
+			private Vector<ListDataListener> listDataListeners = new Vector<>();
+			@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
+			@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l); }
+
+			@Override public int getSize() { return polyLine.points.size(); }
+			@Override public String getElementAt(int index) {
+				if (index<0 || index>=polyLine.points.size()) return null;
+				return PolyLine.toString(polyLine.points.get(index));
+			}
+			
+			private void fireRowChanged(int index) {
+				ListDataEvent e = new ListDataEvent(this,ListDataEvent.CONTENTS_CHANGED,index,index);
+				for (ListDataListener l:listDataListeners) l.contentsChanged(e);
+			}
+			@SuppressWarnings("unused") private void fireRowAdded(int index) {
+				ListDataEvent e = new ListDataEvent(this,ListDataEvent.INTERVAL_ADDED,index,index);
+				for (ListDataListener l:listDataListeners) l.intervalAdded(e);
+			}
+			private void fireRowRemoved(int index) {
+				ListDataEvent e = new ListDataEvent(this,ListDataEvent.INTERVAL_REMOVED,index,index);
+				for (ListDataListener l:listDataListeners) l.intervalRemoved(e);
+			}
+			
+		}
+		
 		@Override protected Integer getNext(int x, int y) {
 			float xu = viewState.convertPos_ScreenToAngle_LongX(x);
 			float yu = viewState.convertPos_ScreenToAngle_LatY (y);
@@ -501,19 +591,15 @@ abstract class LineFormEditing<HighlightedPointType> {
 			return index;
 		}
 
-		@Override
-		protected Point computePickOffset(int x, int y, Integer selectedPoint) {
-			net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
-			int xs = viewState.convertPos_AngleToScreen_LongX((float) p.x);
-			int ys = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
-			return new Point(xs-x, ys-y);
-		}
+		@Override protected void  prepareDragging  (Integer selectedPoint) {}
+		@Override protected float getSelectedPointX(Integer selectedPoint) { return (float) polyLine.points.get(selectedPoint).x; }
+		@Override protected float getSelectedPointY(Integer selectedPoint) { return (float) polyLine.points.get(selectedPoint).y; }
 
 		@Override protected void modifySelectedPoint(Integer selectedPoint, int x, int y, Point pickOffset) {
 			net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
 			if (!isXFixed) p.x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+pickOffset.x));
 			if (!isYFixed) p.y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+pickOffset.y));
-			updateLine(selectedPoint);
+			pointListModel.fireRowChanged(selectedPoint);
 		}
 		
 	}

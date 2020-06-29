@@ -96,13 +96,24 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	enum FormType { PolyLine, Line, Arc }
 	
 	static class PolyLine extends Form.PolyLine implements LineForm<Integer> {
-
+		
+		interface HighlightListener {
+			void highlightedPointChanged(Integer point);
+		}
+		
 		private Integer highlightedPoint = null;
-		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; }
+		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
+		
+		private HighlightListener listener;
+		public void setHighlightListener(HighlightListener listener) { this.listener = listener; }
 
 		@Override
 		public String toString() {
 			return String.format(Locale.ENGLISH, "PolyLine [ %d points ]", points.size());
+		}
+
+		public static String toString(Point p) {
+			return String.format(Locale.ENGLISH, "Point ( %1.4f, %1.4f )", p.x, p.y);
 		}
 
 		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
@@ -147,12 +158,12 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 	}
 	
-	static class Line extends Form.Line implements LineForm<Line.SelectedPoint> {
+	static class Line extends Form.Line implements LineForm<Line.LinePoint> {
 		
-		enum SelectedPoint { P1,P2 } 
+		enum LinePoint { P1,P2 } 
 		
-		SelectedPoint highlightedPoint = null; 
-		@Override public void setHighlightedPoint(SelectedPoint point) { highlightedPoint = point; }
+		LinePoint highlightedPoint = null; 
+		@Override public void setHighlightedPoint(LinePoint point) { highlightedPoint = point; }
 
 		@Override
 		public String toString() {
@@ -175,8 +186,8 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
 			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
 			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
-			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==SelectedPoint.P1);
-			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==SelectedPoint.P2);
+			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==LinePoint.P1);
+			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==LinePoint.P2);
 		}
 
 		@Override

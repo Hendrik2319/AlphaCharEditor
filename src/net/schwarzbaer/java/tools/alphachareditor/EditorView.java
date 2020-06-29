@@ -82,6 +82,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	@Override public void mouseDragged (MouseEvent e) { if (formEditing==null || !formEditing.onDragged (e)) super.mouseDragged (e); }
 	
 	private void deselect() {
+		if (formEditing!=null) formEditing.stopEditing();
 		formEditing=null;
 		context.setValuePanel(null);
 	}
@@ -93,6 +94,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		setSelectedForm(selectedForm, null);
 	}
 	private void setSelectedForm(LineForm<?> selectedForm, MouseEvent e) {
+		if (formEditing!=null) formEditing.stopEditing();
 		formEditing = LineFormEditing.create(selectedForm,viewState,this,e);
 		if (formEditing!=null) context.setValuePanel(formEditing.createValuePanel());
 		highlightedForm = null;
