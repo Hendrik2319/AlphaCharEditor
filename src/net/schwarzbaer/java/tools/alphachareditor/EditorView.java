@@ -5,6 +5,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.util.Locale;
@@ -44,6 +46,11 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		Assert(this.context!=null);
 		activateMapScale(COLOR_AXIS, "px");
 		activateAxes(COLOR_AXIS, true,true,true,true);
+		addKeyListener(new KeyListener() {
+			@Override public void keyTyped   (KeyEvent e) { if (formEditing!=null) formEditing.keyTyped   (e); }
+			@Override public void keyReleased(KeyEvent e) { if (formEditing!=null) formEditing.keyReleased(e); }
+			@Override public void keyPressed (KeyEvent e) { if (formEditing!=null) formEditing.keyPressed (e); }
+		});
 	}
 
 	void setGuideLines(Vector<GuideLine> guideLines) {
@@ -73,7 +80,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			action.accept(gl.type,gl.pos);
 	}
 
-	@Override public void mouseClicked (MouseEvent e) { if (formEditing!=null) deselect();            else setSelectedForm(e); }
+	@Override public void mouseClicked (MouseEvent e) { if (formEditing!=null) { if (!formEditing.onClicked(e)) deselect(); } else setSelectedForm(e); }
 	@Override public void mouseEntered (MouseEvent e) { if (formEditing!=null) formEditing.onEntered (e); else setHighlightedForm(e.getPoint()); setHighlightedGuideLine(null); }
 	@Override public void mouseMoved   (MouseEvent e) { if (formEditing!=null) formEditing.onMoved   (e); else setHighlightedForm(e.getPoint()); }
 	@Override public void mouseExited  (MouseEvent e) { if (formEditing!=null) formEditing.onExited  (e); else setHighlightedForm((Point)null ); }

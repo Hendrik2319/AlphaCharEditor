@@ -9,6 +9,8 @@ import java.awt.GridBagLayout;
 import java.awt.Point;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import java.util.Locale;
@@ -63,8 +65,8 @@ abstract class LineFormEditing<HighlightedPointType> {
 		this.editorView = editorView;
 	}
 	
-	public void stopEditing() {}
-	public LineForm<HighlightedPointType> getForm() { return form; }
+	void stopEditing() {}
+	LineForm<HighlightedPointType> getForm() { return form; }
 
 	protected abstract HighlightedPointType getNext(int x, int y);
 	protected abstract void  prepareDragging    (HighlightedPointType selectedPoint);
@@ -72,12 +74,18 @@ abstract class LineFormEditing<HighlightedPointType> {
 	protected abstract float getSelectedPointY (HighlightedPointType selectedPoint);
 	protected abstract void  modifySelectedPoint(HighlightedPointType selectedPoint, int x, int y, Point pickOffset);
 
-	public abstract JPanel createValuePanel();
-	public void onEntered (MouseEvent e) { form.setHighlightedPoint(getNext(e.getX(),e.getY())); editorView.repaint(); }
-	public void onMoved   (MouseEvent e) { form.setHighlightedPoint(getNext(e.getX(),e.getY())); editorView.repaint(); }
-	public void onExited  (MouseEvent e) { form.setHighlightedPoint(null                      ); editorView.repaint(); }
+	abstract JPanel createValuePanel();
+
+	void keyTyped   (KeyEvent e) {}
+	void keyReleased(KeyEvent e) {}
+	void keyPressed (KeyEvent e) {}
 	
-	public boolean onPressed (MouseEvent e) {
+	boolean onClicked(MouseEvent e) { return false; }
+	void onEntered (MouseEvent e) { form.setHighlightedPoint(getNext(e.getX(),e.getY())); editorView.repaint(); }
+	void onMoved   (MouseEvent e) { form.setHighlightedPoint(getNext(e.getX(),e.getY())); editorView.repaint(); }
+	void onExited  (MouseEvent e) { form.setHighlightedPoint(null                      ); editorView.repaint(); }
+	
+	boolean onPressed (MouseEvent e) {
 		if (e.getButton()!=MouseEvent.BUTTON1) return false;
 		int x = e.getX();
 		int y = e.getY();
@@ -97,7 +105,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		return false;
 	}
 	
-	public boolean onDragged (MouseEvent e) {
+	boolean onDragged (MouseEvent e) {
 		int x = e.getX();
 		int y = e.getY();
 		if (selectedPoint!=null) {
@@ -110,7 +118,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		return false;
 	}
 
-	public boolean onReleased(MouseEvent e) {
+	boolean onReleased(MouseEvent e) {
 		selectedPoint = null;
 		form.setHighlightedPoint(null);
 		pickOffset = null;
@@ -216,14 +224,13 @@ abstract class LineFormEditing<HighlightedPointType> {
 		private boolean isY2Fixed = false;
 		private final Line line;
 		
-		public LineEditing(Line line, ViewState viewState, EditorView editorView, MouseEvent e) {
+		private LineEditing(Line line, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(line, viewState, editorView);
 			this.line = line;
 			this.line.setHighlightedPoint(e==null ? null : getNext(e.getX(),e.getY()));
 		}
 				
-		@Override
-		public JPanel createValuePanel() {
+		@Override JPanel createValuePanel() {
 			int i=0;
 			JPanel panel = new JPanel(new GridBagLayout());
 			panel.setBorder(BorderFactory.createTitledBorder("Line Values"));
@@ -316,13 +323,13 @@ abstract class LineFormEditing<HighlightedPointType> {
 		private double maxGlAngle = Double.NaN;
 		private final Arc arc;
 		
-		public ArcEditing(Arc arc, ViewState viewState, EditorView editorView, MouseEvent e) {
+		private ArcEditing(Arc arc, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(arc, viewState, editorView);
 			this.arc = arc;
 			this.arc.setHighlightedPoint(e==null ? null : getNext(e.getX(),e.getY()));
 		}
 		
-		@Override public JPanel createValuePanel() {
+		@Override JPanel createValuePanel() {
 			JPanel panel = new JPanel(new GridBagLayout());
 			panel.setBorder(BorderFactory.createTitledBorder("Arc Values"));
 			GridBagConstraints c = new GridBagConstraints();
@@ -498,22 +505,22 @@ abstract class LineFormEditing<HighlightedPointType> {
 		private PointListModel pointListModel = null;
 		public SimplifiedColumnConfig config;
 		
-		public PolyLineEditing(PolyLine polyLine, ViewState viewState, EditorView editorView, MouseEvent e) {
+		private PolyLineEditing(PolyLine polyLine, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(polyLine, viewState, editorView);
 			Assert(polyLine!=null);
 			this.polyLine = polyLine;
 			this.polyLine.setHighlightedPoint(e==null ? null : getNext(e.getX(),e.getY()));
 			this.polyLine.setHighlightListener(this);
 		}
-		@Override public void stopEditing() { polyLine.setHighlightListener(this); }
+		@Override void stopEditing() { polyLine.setHighlightListener(this); }
 
 		@Override public void highlightedPointChanged(Integer index_) {
 			int newIndex = index_==null ? -1 : index_.intValue();
 			int oldIndex = pointList.getSelectedRow();
 			if (newIndex!=oldIndex) {
+				cancelCellEditing();
 				if (newIndex<0) pointList.clearSelection();
 				else pointList.setRowSelectionInterval(newIndex, newIndex);
-				cancelCellEditing();
 			}
 		}
 		private void cancelCellEditing() {
@@ -521,7 +528,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			if (editor!=null) editor.cancelCellEditing();
 		}
 
-		@Override public JPanel createValuePanel() {
+		@Override JPanel createValuePanel() {
 			pointList = new JTable(pointListModel = new PointListModel());
 			pointList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 			pointList.getSelectionModel().addListSelectionListener(e->{
@@ -537,8 +544,8 @@ abstract class LineFormEditing<HighlightedPointType> {
 			pointListScrollPane.setPreferredSize(new Dimension(200, 200));
 			
 			JPanel buttonPanel = new JPanel(new GridBagLayout());
-			buttonPanel.add(createCheckBox("X Fixed", isXFixed, b->{ isXFixed=b; pointList.repaint(); cancelCellEditing(); }));
-			buttonPanel.add(createCheckBox("Y Fixed", isYFixed, b->{ isYFixed=b; pointList.repaint(); cancelCellEditing(); }));
+			buttonPanel.add(createCheckBox("X Fixed", isXFixed, b->{ isXFixed=b; cancelCellEditing(); pointList.repaint(); }));
+			buttonPanel.add(createCheckBox("Y Fixed", isYFixed, b->{ isYFixed=b; cancelCellEditing(); pointList.repaint(); }));
 			buttonPanel.add(btnRemove = MainWindow.createButton("Remove", false, e->removePoint(pointList.getSelectedRow())));
 			
 			JPanel panel = new JPanel(new BorderLayout(3,3));
@@ -557,8 +564,8 @@ abstract class LineFormEditing<HighlightedPointType> {
 			if (index<0 || index>=polyLine.points.size()) return;
 			polyLine.points.remove(index);
 			polyLine.setHighlightedPoint(null);
-			pointListModel.fireTableRowRemoved(index);
 			cancelCellEditing();
+			pointListModel.fireTableRowRemoved(index);
 			editorView.repaint();
 		}
 		
@@ -665,6 +672,71 @@ abstract class LineFormEditing<HighlightedPointType> {
 			if (!isYFixed) p.y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+pickOffset.y));
 			pointListModel.fireTableRowUpdate(selectedPoint);
 		}
+		
+		@Override void onEntered(MouseEvent e) {
+			if (e.isControlDown()) { setNextNewPoint(e); return; }
+			if (polyLine.hasNextNewPoint()) clearNextNewPoint();
+			super.onEntered(e);
+		}
+		@Override void onMoved(MouseEvent e) {
+			if (e.isControlDown()) { setNextNewPoint(e); return; }
+			if (polyLine.hasNextNewPoint()) clearNextNewPoint();
+			super.onMoved(e);
+		}
+		@Override boolean onDragged(MouseEvent e) {
+			if (e.isControlDown()) { setNextNewPoint(e); return true; }
+			if (polyLine.hasNextNewPoint()) clearNextNewPoint();
+			return super.onDragged(e);
+		}
+		@Override void onExited(MouseEvent e) {
+			clearNextNewPoint();
+			super.onExited(e);
+		}
+		@Override boolean onClicked(MouseEvent e) {
+			if (e.isControlDown() && e.getButton()==MouseEvent.BUTTON1) { addNextNewPoint(e); return true; }
+			checkNextNewPoint(e);
+			return super.onClicked(e);
+		}
+		@Override boolean onPressed(MouseEvent e) {
+			if (e.isControlDown() && e.getButton()==MouseEvent.BUTTON1) return true;
+			checkNextNewPoint(e);
+			return super.onPressed(e);
+		}
+		@Override boolean onReleased(MouseEvent e) {
+			if (e.isControlDown() && e.getButton()==MouseEvent.BUTTON1) return true;
+			checkNextNewPoint(e);
+			return super.onReleased(e);
+		}
+		@Override void keyReleased(KeyEvent e) {
+			checkNextNewPoint(e);
+			super.keyReleased(e);
+		}
+		
+		private void setNextNewPoint(MouseEvent e) {
+			polyLine.setHighlightedPoint(null);
+			double x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(e.getX()));
+			double y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (e.getY()));
+			polyLine.setNextNewPoint(x,y);
+			editorView.repaint();
+		}
+		private void addNextNewPoint(MouseEvent e) {
+			double x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(e.getX()));
+			double y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (e.getY()));
+			polyLine.setNextNewPoint(x,y);
+			polyLine.addNextNewPoint();
+			cancelCellEditing();
+			pointListModel.fireTableRowAdded(polyLine.points.size()-1);
+			editorView.repaint();
+		}
+		private void checkNextNewPoint(InputEvent e) {
+			if (!e.isControlDown() && polyLine.hasNextNewPoint()) clearNextNewPoint();
+		}
+		private void clearNextNewPoint() {
+			polyLine.clearNextNewPoint();
+			editorView.repaint();
+		}
+		
+		
 		
 	}
 

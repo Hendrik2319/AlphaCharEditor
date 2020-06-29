@@ -101,10 +101,11 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			void highlightedPointChanged(Integer point);
 		}
 		
+		private Point nextNewPoint = null;
 		private Integer highlightedPoint = null;
-		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
+		private HighlightListener listener = null;
 		
-		private HighlightListener listener;
+		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
 		public void setHighlightListener(HighlightListener listener) { this.listener = listener; }
 
 		@Override
@@ -141,6 +142,11 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				int y = viewState.convertPos_AngleToScreen_LatY ((float) p1.y);
 				EditorView.drawPoint(g2,x,y,highlightedPoint!=null && i==highlightedPoint.intValue());
 			}
+			if (nextNewPoint!=null) {
+				int x = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
+				int y = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+				EditorView.drawPoint(g2,x,y,true);
+			}
 		}
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
@@ -155,6 +161,31 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				x1s = x2s;
 				y1s = y2s;
 			}
+			if (nextNewPoint!=null) {
+				int x2s = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
+				int y2s = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+				g2.drawLine(x1s,y1s,x2s,y2s);
+			}
+		}
+
+		void setNextNewPoint(double x, double y) {
+			if (nextNewPoint==null)
+				nextNewPoint = new Point(x,y);
+			else
+				nextNewPoint.set(x,y);
+		}
+
+		void clearNextNewPoint() {
+			nextNewPoint = null;
+		}
+
+		void addNextNewPoint() {
+			if (nextNewPoint!=null) points.add(nextNewPoint);
+			nextNewPoint = null;
+		}
+		
+		boolean hasNextNewPoint() {
+			return nextNewPoint!=null;
 		}
 	}
 	
