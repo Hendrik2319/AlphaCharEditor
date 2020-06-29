@@ -10,7 +10,7 @@ import java.util.Locale;
 import net.schwarzbaer.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
-interface LineForm {
+interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
@@ -37,14 +37,14 @@ interface LineForm {
 	void drawLines (Graphics2D g2, ViewState viewState);
 	void drawPoints(Graphics2D g2, ViewState viewState);
 	Double getDistance(float x, float y, float maxDist);
-	LineForm setValues(double[] values);
+	LineForm<HighlightPointType> setValues(double[] values);
 	
-	static LineForm convert(Form form) {
+	static LineForm<?> convert(Form form) {
 		Assert(form instanceof LineForm);
-		return (LineForm) form;
+		return (LineForm<?>) form;
 	}
 
-	static Form convert(LineForm form) {
+	static Form convert(LineForm<?> form) {
 		if (form instanceof PolyLine) return (PolyLine) form;
 		if (form instanceof Line    ) return (Line    ) form;
 		if (form instanceof Arc     ) return (Arc     ) form;
@@ -52,20 +52,20 @@ interface LineForm {
 		return null;
 	}
 
-	static LineForm[] convert(Form[] arr) {
+	static LineForm<?>[] convert(Form[] arr) {
 		if (arr == null) return null;
-		LineForm[] newArr = new LineForm[arr.length];
+		LineForm<?>[] newArr = new LineForm<?>[arr.length];
 		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
 		return newArr;
 	}
-	static Form[] convert(LineForm[] arr) {
+	static Form[] convert(LineForm<?>[] arr) {
 		if (arr == null) return null;
 		Form[] newArr = new Form[arr.length];
 		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
 		return newArr;
 	}
 
-	static LineForm createNew(FormType formType, Rectangle2D.Float viewRect) {
+	static LineForm<?> createNew(FormType formType, Rectangle2D.Float viewRect) {
 		switch (formType) {
 		case PolyLine: return new PolyLine().setValues(createNewValues(formType,viewRect));
 		case Line    : return new Line    ().setValues(createNewValues(formType,viewRect));
@@ -95,7 +95,10 @@ interface LineForm {
 	
 	enum FormType { PolyLine, Line, Arc }
 	
-	static class PolyLine extends Form.PolyLine implements LineForm {
+	static class PolyLine extends Form.PolyLine implements LineForm<Integer> {
+
+		private Integer highlightedPoint = null;
+		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; }
 
 		@Override
 		public String toString() {
@@ -121,10 +124,11 @@ interface LineForm {
 		}
 
 		@Override public void drawPoints(Graphics2D g2, ViewState viewState) {
-			for (Point p1:points) {
+			for (int i=0; i<points.size(); i++) {
+				Point p1 = points.get(i);
 				int x = viewState.convertPos_AngleToScreen_LongX((float) p1.x);
 				int y = viewState.convertPos_AngleToScreen_LatY ((float) p1.y);
-				EditorView.drawPoint(g2,x,y,false);
+				EditorView.drawPoint(g2,x,y,highlightedPoint!=null && i==highlightedPoint.intValue());
 			}
 		}
 
@@ -143,13 +147,13 @@ interface LineForm {
 		}
 	}
 	
-	static class Line extends Form.Line implements LineForm {
+	static class Line extends Form.Line implements LineForm<Line.SelectedPoint> {
 		
 		enum SelectedPoint { P1,P2 } 
 		
-		SelectedPoint selectedPoint    = null;
 		SelectedPoint highlightedPoint = null; 
-		
+		@Override public void setHighlightedPoint(SelectedPoint point) { highlightedPoint = point; }
+
 		@Override
 		public String toString() {
 			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
@@ -171,8 +175,8 @@ interface LineForm {
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
 			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
 			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
-			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==SelectedPoint.P1 || selectedPoint==SelectedPoint.P1);
-			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==SelectedPoint.P2 || selectedPoint==SelectedPoint.P2);
+			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==SelectedPoint.P1);
+			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==SelectedPoint.P2);
 		}
 
 		@Override
@@ -202,10 +206,11 @@ interface LineForm {
 		}
 	}
 	
-	static class Arc extends Form.Arc implements LineForm {
+	static class Arc extends Form.Arc implements LineForm<Arc.ArcPoint> {
 
-		public ArcPoint highlightedPoint = null;
-		
+		private ArcPoint highlightedPoint = null;
+		@Override public void setHighlightedPoint(ArcPoint point) { highlightedPoint = point; }
+
 		static class ArcPoint {
 			enum Type { Radius, Center, Start, End }
 			final Type type;

@@ -49,7 +49,7 @@ class MainWindow extends StandardMainWindow {
 		if (!condition) throw new IllegalStateException();
 	}
 	
-	private LineForm[] lineforms = null;
+	private LineForm<?>[] lineforms = null;
 	private Character selectedChar;
 	private JComponent valuePanel;
 	
@@ -77,8 +77,8 @@ class MainWindow extends StandardMainWindow {
 			@Override public void repaintView() { editorView.repaint(); }
 			@Override public Rectangle2D.Float getViewRectangle() { return editorView.getViewRectangle(); }
 
-			@Override public void changeHighlightedForm(LineForm form) { editorView.setHighlightedForm(form); }
-			@Override public void changeSelectedForm   (LineForm form) { editorView.setSelectedForm   (form); }
+			@Override public void changeHighlightedForm(LineForm<?> form) { editorView.setHighlightedForm(form); }
+			@Override public void changeSelectedForm   (LineForm<?> form) { editorView.setSelectedForm   (form); }
 			@Override public void changeHighlightedGuideLine(GuideLine guideLine) { editorView.setHighlightedGuideLine(guideLine); }
 			
 			@Override
@@ -96,22 +96,22 @@ class MainWindow extends StandardMainWindow {
 			}
 
 			@Override
-			public void addForm(LineForm form) {
+			public void addForm(LineForm<?> form) {
 				if (form==null) return;
-				LineForm[] newArr = lineforms==null ? new LineForm[1] : Arrays.copyOf(lineforms, lineforms.length+1);
+				LineForm<?>[] newArr = lineforms==null ? new LineForm[1] : Arrays.copyOf(lineforms, lineforms.length+1);
 				newArr[newArr.length-1] = form;
 				setNewArray(newArr);
 			}
 			@Override
 			public void removeForm(int index) {
 				if (lineforms==null || index<0 || index>=lineforms.length) return;
-				LineForm[] newArr = Arrays.copyOf(lineforms, lineforms.length-1);
+				LineForm<?>[] newArr = Arrays.copyOf(lineforms, lineforms.length-1);
 				for (int i=index; i<newArr.length; ++i)
 					newArr[i] = lineforms[i+1];
 				setNewArray(newArr);
 			}
 
-			private void setNewArray(LineForm[] newArr) {
+			private void setNewArray(LineForm<?>[] newArr) {
 				lineforms = newArr;
 				editorView.setForms(lineforms);
 				generalOptionPanel.setForms(lineforms,selectedChar);
@@ -129,7 +129,7 @@ class MainWindow extends StandardMainWindow {
 		leftPanel.add(valuePanel = generalOptionPanel,BorderLayout.CENTER);
 		
 		editorView = new EditorView(new EditorView.Context() {
-			@Override public void updateHighlightedForm(LineForm form) {
+			@Override public void updateHighlightedForm(LineForm<?> form) {
 				generalOptionPanel.setSelectedForm(form);
 			}
 			@Override public void setValuePanel(JPanel panel) {
@@ -259,21 +259,21 @@ class MainWindow extends StandardMainWindow {
 			guideLinesPanel.setGuideLines(guideLines);
 		}
 	
-		void setSelectedForm(LineForm form) {
+		void setSelectedForm(LineForm<?> form) {
 			formsPanel.setSelected(form);
 		}
 	
-		void setForms(LineForm[] forms, Character selectedChar) {
+		void setForms(LineForm<?>[] forms, Character selectedChar) {
 			formsPanel.setForms(forms,selectedChar);
 		}
 		
 		interface Context {
-			void addForm(LineForm form);
+			void addForm(LineForm<?> form);
 			void removeForm(int index);
 			void addGuideLine(GuideLine guideLine);
 			void removeGuideLine(int index);
-			void changeHighlightedForm(LineForm form);
-			void changeSelectedForm(LineForm form);
+			void changeHighlightedForm(LineForm<?> form);
+			void changeSelectedForm(LineForm<?> form);
 			void changeHighlightedGuideLine(GuideLine guideLine);
 			void repaintView();
 			Rectangle2D.Float getViewRectangle();
@@ -282,7 +282,7 @@ class MainWindow extends StandardMainWindow {
 	
 		private class FormsPanel extends JPanel {
 			private static final long serialVersionUID = 5266768936706086790L;
-			private final JList<LineForm> formList;
+			private final JList<LineForm<?>> formList;
 			private final JButton btnNew;
 			private final JButton btnEdit;
 			private final JButton btnRemove;
@@ -291,10 +291,10 @@ class MainWindow extends StandardMainWindow {
 				super(new BorderLayout(3,3));
 				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
 				
-				formList = new JList<LineForm>();
+				formList = new JList<>();
 				formList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 				formList.addListSelectionListener(e->{
-					LineForm selectedValue = formList.getSelectedValue();
+					LineForm<?> selectedValue = formList.getSelectedValue();
 					context.changeHighlightedForm(selectedValue);
 					setButtonsEnabled(selectedValue!=null);
 				});
@@ -316,7 +316,7 @@ class MainWindow extends StandardMainWindow {
 				btnRemove.setEnabled(enabled);
 			}
 
-			private LineForm createNewForm() {
+			private LineForm<?> createNewForm() {
 				Object result = JOptionPane.showInputDialog(this, "Select type of new form:", "Form Type", JOptionPane.QUESTION_MESSAGE, null, LineForm.FormType.values(), null);
 				if (result==null) return null;
 				if (result instanceof LineForm.FormType)
@@ -324,28 +324,28 @@ class MainWindow extends StandardMainWindow {
 				return null;
 			}
 
-			void setSelected(LineForm form) {
+			void setSelected(LineForm<?> form) {
 				if (form==null) formList.clearSelection();
 				else formList.setSelectedValue(form, true);
 				setButtonsEnabled(form!=null);
 			}
 	
-			void setForms(LineForm[] forms, Character selectedChar) {
+			void setForms(LineForm<?>[] forms, Character selectedChar) {
 				formList.setModel(new FormListModel(forms));
 				btnNew.setEnabled(selectedChar!=null);
 			}
 	
-			private final class FormListModel implements ListModel<LineForm> {
-				private LineForm[] forms;
+			private final class FormListModel implements ListModel<LineForm<?>> {
+				private LineForm<?>[] forms;
 				private Vector<ListDataListener> listDataListeners;
 				
-				public FormListModel(LineForm[] forms) {
+				public FormListModel(LineForm<?>[] forms) {
 					this.forms = forms;
 					listDataListeners = new Vector<>();
 				}
 	
 				@Override public int getSize() { return forms==null ? 0 : forms.length; }
-				@Override public LineForm getElementAt(int index) {
+				@Override public LineForm<?> getElementAt(int index) {
 					if (forms==null || index<0 || index>=forms.length) return null;
 					return forms[index];
 				}

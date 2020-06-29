@@ -32,9 +32,9 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private static final Color COLOR_GUIDELINES            = new Color(0xf0f0f0);
 	private static final Color COLOR_GUIDELINES_HIGLIGHTED = new Color(0xb5f0b5);
 
-	private LineForm[] forms = null;
+	private LineForm<?>[] forms = null;
 	private Vector<GuideLine> guideLines = null;
-	private LineForm highlightedForm = null;
+	private LineForm<?> highlightedForm = null;
 	private LineFormEditing<?> formEditing = null;
 	private GuideLine highlightedGuideLine;
 	private final Context context;
@@ -51,7 +51,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		repaint();
 	}
 
-	void setForms(LineForm[] forms) {
+	void setForms(LineForm<?>[] forms) {
 		this.forms = forms;
 		highlightedForm = null;
 		deselect();
@@ -62,7 +62,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	interface Context {
 		void setValuePanel(JPanel panel);
-		void updateHighlightedForm(LineForm form);
+		void updateHighlightedForm(LineForm<?> form);
 	}
 
 	double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
@@ -89,10 +89,10 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private void setSelectedForm(MouseEvent e) {
 		setSelectedForm(getNext(e.getPoint()), e);
 	}
-	void setSelectedForm(LineForm selectedForm) {
+	void setSelectedForm(LineForm<?> selectedForm) {
 		setSelectedForm(selectedForm, null);
 	}
-	private void setSelectedForm(LineForm selectedForm, MouseEvent e) {
+	private void setSelectedForm(LineForm<?> selectedForm, MouseEvent e) {
 		formEditing = LineFormEditing.create(selectedForm,viewState,this,e);
 		if (formEditing!=null) context.setValuePanel(formEditing.createValuePanel());
 		highlightedForm = null;
@@ -107,10 +107,10 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private void setHighlightedForm(Point p) {
 		setHighlightedForm(getNext(p),true);
 	}
-	void setHighlightedForm(LineForm highlightedForm) {
+	void setHighlightedForm(LineForm<?> highlightedForm) {
 		setHighlightedForm(highlightedForm,false);
 	}
-	private void setHighlightedForm(LineForm highlightedForm, boolean updateHighlightedInFormList) {
+	private void setHighlightedForm(LineForm<?> highlightedForm, boolean updateHighlightedInFormList) {
 		if (highlightedForm!=this.highlightedForm) {
 			this.highlightedForm = highlightedForm;
 			repaint();
@@ -119,16 +119,16 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			context.updateHighlightedForm(this.highlightedForm);
 	}
 
-	private LineForm getNext(Point p) {
+	private LineForm<?> getNext(Point p) {
 		if (p==null || forms==null) return null;
 		
 		Double minDist = null;
-		LineForm nearest = null;
+		LineForm<?> nearest = null;
 		float maxDist = viewState.convertLength_ScreenToLength(MAX_NEAR_DISTANCE);
 		float x = viewState.convertPos_ScreenToAngle_LongX(p.x);
 		float y = viewState.convertPos_ScreenToAngle_LatY (p.y);
 		//System.out.printf(Locale.ENGLISH, "getNext: %f,%f (max:%f)%n", x,y,maxDist);
-		for (LineForm form:forms) {
+		for (LineForm<?> form:forms) {
 			Double dist = form.getDistance(x,y,maxDist);
 			//System.out.printf(Locale.ENGLISH, "Distance[%s]: %s%n", form.getClass().getSimpleName(), dist);
 			if (dist!=null && (minDist==null || minDist>dist)) {
@@ -168,9 +168,9 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			
 			drawMapDecoration(g2, x, y, width, height);
 			
-			LineForm selectedForm = formEditing==null ? null : formEditing.form;
+			LineForm<?> selectedForm = formEditing==null ? null : formEditing.getForm();
 			if (forms!=null)
-				for (LineForm form:forms)
+				for (LineForm<?> form:forms)
 					if (form!=selectedForm && form!=highlightedForm) form.drawLines(g2,viewState,false,false);
 			if (selectedForm!=null) { selectedForm.drawLines(g2,viewState,true ,false); selectedForm.drawPoints(g2, viewState); }
 			if (highlightedForm !=null) { highlightedForm .drawLines(g2,viewState,false,true ); highlightedForm .drawPoints(g2, viewState); }
