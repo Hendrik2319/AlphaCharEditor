@@ -84,7 +84,13 @@ public class AlphaCharEditor {
 		mainwindow.updateAfterProjectLoad();
 	}
 	
+	void reloadProject() {
+		if (project.projectFile!=null)
+			loadProject(project.projectFile);
+	}
+
 	void loadProject(File file) {
+		if (file==null) return;
 		Assert(mainwindow!=null);
 		project = Project.readFromFile(file);
 		settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
@@ -174,7 +180,7 @@ public class AlphaCharEditor {
 		}
 
 		void writeToFile(File file) {
-			if (file==null) return;
+			Assert(file!=null);
 			projectFile = file;
 			
 			System.out.printf("Write project to file \"%s\" ...%n", file);
@@ -196,6 +202,7 @@ public class AlphaCharEditor {
 		}
     	
     	static Project readFromFile(File file) {
+    		Assert(file!=null);
 			Project project = new Project(file);
 			
 			System.out.printf("Read project from file \"%s\" ...%n", file);
@@ -236,11 +243,7 @@ public class AlphaCharEditor {
 			}
 			System.out.printf("... done%n");
 			
-			if (project.fontIsDefault)
-				project.loadDefaultFont();
-			else if (project.fontFile!=null)
-				project.loadFont(project.fontFile);
-			
+			project.reloadFont();
 			return project;
     	}
 
@@ -250,7 +253,15 @@ public class AlphaCharEditor {
     		this.fontIsDefault = true;
     	}
 
+		void reloadFont() {
+			if (fontIsDefault)
+				loadDefaultFont();
+			else if (fontFile!=null)
+				loadFont(fontFile);
+		}
+
 		void loadFont(File fontFile) {
+			if (fontFile==null) return;
 			this.font = AlphaCharIO.readAlphaCharFontFromFile(fontFile, new LineForm.Factory(), true);
     		this.fontFile = fontFile;
     		this.fontIsDefault = false;

@@ -6,6 +6,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -105,6 +106,15 @@ class MainWindow extends StandardMainWindow {
 				setNewArray(newArr);
 			}
 			@Override
+			public void addForms(Vector<LineForm<?>> forms) {
+				if (forms==null) return;
+				LineForm<?>[] newArr = lineforms==null ? new LineForm[forms.size()] : Arrays.copyOf(lineforms, lineforms.length+forms.size());
+				int offset = lineforms==null ? 0 : lineforms.length;
+				for (int i=0; i<forms.size(); i++)
+					newArr[offset+i] = forms.get(i);
+				setNewArray(newArr);
+			}
+			@Override
 			public void removeForms(List<LineForm<?>> forms) {
 				if (forms==null || forms.isEmpty()) return;
 				Vector<LineForm<?>> vec = new Vector<>(Arrays.asList(lineforms));
@@ -155,7 +165,7 @@ class MainWindow extends StandardMainWindow {
 				leftPanel.repaint();
 			}
 		});
-		editorView.setPreferredSize(500, 300);
+		editorView.setPreferredSize(500, 400);
 		
 		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
 		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
@@ -188,12 +198,14 @@ class MainWindow extends StandardMainWindow {
 		
 		JMenu projectMenu = menuBar.add(new JMenu("Project"));
 		projectMenu.add(createMenuItem("New Project"        ,e->alphaCharEditor.createNewProject()));
+		projectMenu.add(createMenuItem("Reload Project"     ,e->alphaCharEditor.reloadProject(                            )));
 		projectMenu.add(createMenuItem("Load Project ..."   ,e->alphaCharEditor.loadProject  (      getProjectFileToOpen())));
 		projectMenu.add(createMenuItem("Save Project"       ,e->alphaCharEditor.saveProject  (this::getProjectFileToSave  )));
 		projectMenu.add(createMenuItem("Save Project As ...",e->alphaCharEditor.saveProjectAs(      getProjectFileToSave())));
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
 		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.project.loadDefaultFont();                     updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Reload Font"      ,e->{ alphaCharEditor.project.reloadFont(                         ); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ alphaCharEditor.project.loadFont  (      getFontFileToOpen()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font"        ,e->{ alphaCharEditor.project.saveFont  (this::getFontFileToSave  ); }));
 		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ alphaCharEditor.project.saveFontAs(      getFontFileToSave()); }));
@@ -253,8 +265,8 @@ class MainWindow extends StandardMainWindow {
 	private static class GeneralOptionPanel extends JTabbedPane {
 		private static final long serialVersionUID = -2024771038202756837L;
 		
-		private FormsPanel formsPanel;
-		private GuideLinesPanel guideLinesPanel;
+		private final FormsPanel formsPanel;
+		private final GuideLinesPanel guideLinesPanel;
 
 		private Context context;
 		
@@ -279,7 +291,8 @@ class MainWindow extends StandardMainWindow {
 		}
 		
 		interface Context {
-			void addForm(LineForm<?> form);
+			void addForm (LineForm<?> form);
+			void addForms(Vector<LineForm<?>> forms);
 			void removeForms(List<LineForm<?>> forms);
 			void addGuideLine(GuideLine guideLine);
 			void removeGuideLine(int index);
@@ -297,10 +310,15 @@ class MainWindow extends StandardMainWindow {
 			private final JButton btnNew;
 			private final JButton btnEdit;
 			private final JButton btnRemove;
+			private final JButton btnCopy;
+			private final JButton btnPaste;
+			private final Vector<LineForm<?>> localClipboard;
 	
 			FormsPanel() {
 				super(new BorderLayout(3,3));
 				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
+				
+				localClipboard = new Vector<>();
 				
 				formList = new JList<>();
 				formList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -312,19 +330,46 @@ class MainWindow extends StandardMainWindow {
 				
 				JScrollPane formListScrollPane = new JScrollPane(formList);
 				
-				JPanel buttonPanel = new JPanel(new GridBagLayout());
-				buttonPanel.add(btnNew    = createButton("New"   , false, e->context.addForm(createNewForm())));
-				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())));
-				buttonPanel.add(btnRemove = createButton("Remove", false, e->context.removeForms(formList.getSelectedValuesList())));
+				JPanel buttonPanel1 = new JPanel(new GridBagLayout());
+				buttonPanel1.add(btnNew    = createButton("New"   , false, e->context.addForm(createNewForm())));
+				buttonPanel1.add(btnEdit   = createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())));
+				buttonPanel1.add(btnRemove = createButton("Remove", false, e->context.removeForms(formList.getSelectedValuesList())));
+				
+				JPanel buttonPanel2 = new JPanel(new GridBagLayout());
+				buttonPanel2.add(btnCopy   = createButton("Copy" , false, e->copyForms(formList.getSelectedValuesList())));
+				buttonPanel2.add(btnPaste  = createButton("Paste", false, e->pasteForms()));
+				
+				JPanel buttonGroupsPanel = new JPanel(new GridLayout(0,1));
+				buttonGroupsPanel.add(buttonPanel1);
+				buttonGroupsPanel.add(buttonPanel2);
 				
 				add(formListScrollPane,BorderLayout.CENTER);
-				add(buttonPanel,BorderLayout.SOUTH);
+				add(buttonGroupsPanel,BorderLayout.SOUTH);
 			}
 	
+			private void pasteForms() {
+				Vector<LineForm<?>> vec = new Vector<>();
+				for (LineForm<?> form:localClipboard)
+					if (form!=null)
+						vec.add(LineForm.clone(form));
+				context.addForms(vec);
+			}
+
+			private void copyForms(List<LineForm<?>> forms) {
+				localClipboard.clear();
+				for (LineForm<?> form:forms) {
+					if (form!=null)
+						localClipboard.add(LineForm.clone(form));
+				}
+				setButtonsEnabled(formList.getSelectedValuesList().size());
+			}
+
 			private void setButtonsEnabled(int selection) {
 				//btnNew   .setEnabled(enabled);
 				btnEdit  .setEnabled(selection==1);
 				btnRemove.setEnabled(selection>0);
+				btnCopy  .setEnabled(selection>0);
+				btnPaste .setEnabled(!localClipboard.isEmpty());
 			}
 
 			private LineForm<?> createNewForm() {

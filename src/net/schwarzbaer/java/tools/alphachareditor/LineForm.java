@@ -38,7 +38,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	void drawPoints(Graphics2D g2, ViewState viewState);
 	Double getDistance(float x, float y, float maxDist);
 	LineForm<HighlightPointType> setValues(double[] values);
-	
+
 	static LineForm<?> convert(Form form) {
 		Assert(form instanceof LineForm);
 		return (LineForm<?>) form;
@@ -63,6 +63,14 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		Form[] newArr = new Form[arr.length];
 		for (int i=0; i<arr.length; i++) newArr[i] = convert(arr[i]);
 		return newArr;
+	}
+
+	static LineForm<?> clone(LineForm<?> form) {
+		if (form instanceof PolyLine) return new PolyLine().setValues( ((PolyLine)form).getValues() );
+		if (form instanceof Line    ) return new Line    ().setValues( ((Line    )form).getValues() );
+		if (form instanceof Arc     ) return new Arc     ().setValues( ((Arc     )form).getValues() );
+		Assert(false);
+		return null;
 	}
 
 	static LineForm<?> createNew(FormType formType, Rectangle2D.Float viewRect) {
@@ -104,6 +112,8 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		private NextNewPoint nextNewPoint = null;
 		private Integer highlightedPoint = null;
 		private HighlightListener listener = null;
+		
+		
 		
 		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
 		public void setHighlightListener(HighlightListener listener) { this.listener = listener; }
