@@ -2,6 +2,8 @@ package net.schwarzbaer.java.tools.alphachareditor;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Point;
@@ -9,6 +11,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Vector;
 import java.util.function.Consumer;
 import java.util.function.DoubleFunction;
@@ -19,15 +22,17 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
+import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellEditor;
 
+import net.schwarzbaer.gui.Tables;
+import net.schwarzbaer.gui.Tables.SimplifiedColumnConfig;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint;
@@ -488,10 +493,10 @@ abstract class LineFormEditing<HighlightedPointType> {
 		private final PolyLine polyLine;
 		private boolean isXFixed;
 		private boolean isYFixed;
-		private JList<String> pointList = null;
-		@SuppressWarnings("unused") private JButton btnNew = null;
+		private JTable pointList = null;
 		private JButton btnRemove = null;
 		private PointListModel pointListModel = null;
+		public SimplifiedColumnConfig config;
 		
 		public PolyLineEditing(PolyLine polyLine, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(polyLine, viewState, editorView);
@@ -504,37 +509,47 @@ abstract class LineFormEditing<HighlightedPointType> {
 
 		@Override public void highlightedPointChanged(Integer index_) {
 			int newIndex = index_==null ? -1 : index_.intValue();
-			int oldIndex = pointList.getSelectedIndex();
+			int oldIndex = pointList.getSelectedRow();
 			if (newIndex!=oldIndex) {
 				if (newIndex<0) pointList.clearSelection();
-				else pointList.setSelectedIndex(newIndex);
+				else pointList.setRowSelectionInterval(newIndex, newIndex);
+				cancelCellEditing();
 			}
+		}
+		private void cancelCellEditing() {
+			TableCellEditor editor = pointList.getCellEditor();
+			if (editor!=null) editor.cancelCellEditing();
 		}
 
 		@Override public JPanel createValuePanel() {
-			pointList = new JList<>(pointListModel = new PointListModel());
+			pointList = new JTable(pointListModel = new PointListModel());
 			pointList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-			pointList.addListSelectionListener(e->{
-				int index = pointList.getSelectedIndex();
+			pointList.getSelectionModel().addListSelectionListener(e->{
+				int index = pointList.getSelectedRow();
 				polyLine.setHighlightedPoint(index<0 ? null : index);
 				editorView.repaint();
 				setButtonsEnabled(index>=0);
 			});
+			//pointListModel.setColumnWidths(pointList);
+			//pointList.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+			pointList.setDefaultRenderer(Double.class, new PointListRenderer());
+			JScrollPane pointListScrollPane = new JScrollPane(pointList);
+			pointListScrollPane.setPreferredSize(new Dimension(200, 200));
 			
 			JPanel buttonPanel = new JPanel(new GridBagLayout());
-			buttonPanel.add(btnNew    = MainWindow.createButton("New"   , true , e->{}));
-			buttonPanel.add(btnRemove = MainWindow.createButton("Remove", false, e->removePoint(pointList.getSelectedIndex())));
+			buttonPanel.add(createCheckBox("X Fixed", isXFixed, b->{ isXFixed=b; pointList.repaint(); cancelCellEditing(); }));
+			buttonPanel.add(createCheckBox("Y Fixed", isYFixed, b->{ isYFixed=b; pointList.repaint(); cancelCellEditing(); }));
+			buttonPanel.add(btnRemove = MainWindow.createButton("Remove", false, e->removePoint(pointList.getSelectedRow())));
 			
 			JPanel panel = new JPanel(new BorderLayout(3,3));
 			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));
-			panel.add(new JScrollPane(pointList),BorderLayout.CENTER);
+			panel.add(pointListScrollPane,BorderLayout.CENTER);
 			panel.add(buttonPanel,BorderLayout.SOUTH);
 			
 			return panel;
 		}
 		
 		private void setButtonsEnabled(boolean enabled) {
-			//btnNew   .setEnabled(enabled);
 			btnRemove.setEnabled(enabled);
 		}
 		
@@ -542,36 +557,85 @@ abstract class LineFormEditing<HighlightedPointType> {
 			if (index<0 || index>=polyLine.points.size()) return;
 			polyLine.points.remove(index);
 			polyLine.setHighlightedPoint(null);
-			pointListModel.fireRowRemoved(index);
+			pointListModel.fireTableRowRemoved(index);
+			cancelCellEditing();
 			editorView.repaint();
 		}
-
-		private class PointListModel implements ListModel<String> {
-			
-			private Vector<ListDataListener> listDataListeners = new Vector<>();
-			@Override public void    addListDataListener(ListDataListener l) { listDataListeners.   add(l); }
-			@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l); }
-
-			@Override public int getSize() { return polyLine.points.size(); }
-			@Override public String getElementAt(int index) {
-				if (index<0 || index>=polyLine.points.size()) return null;
-				return PolyLine.toString(polyLine.points.get(index));
-			}
-			
-			private void fireRowChanged(int index) {
-				ListDataEvent e = new ListDataEvent(this,ListDataEvent.CONTENTS_CHANGED,index,index);
-				for (ListDataListener l:listDataListeners) l.contentsChanged(e);
-			}
-			@SuppressWarnings("unused") private void fireRowAdded(int index) {
-				ListDataEvent e = new ListDataEvent(this,ListDataEvent.INTERVAL_ADDED,index,index);
-				for (ListDataListener l:listDataListeners) l.intervalAdded(e);
-			}
-			private void fireRowRemoved(int index) {
-				ListDataEvent e = new ListDataEvent(this,ListDataEvent.INTERVAL_REMOVED,index,index);
-				for (ListDataListener l:listDataListeners) l.intervalRemoved(e);
-			}
-			
+		
+		enum ColumnID implements Tables.SimplifiedColumnIDInterface {
+			X("X"), Y("Y");
+			private final SimplifiedColumnConfig config;
+			ColumnID(String name) { config = new SimplifiedColumnConfig(name, Double.class, 20, -1, 50, 50); }
+			@Override public SimplifiedColumnConfig getColumnConfig() { return config; }
 		}
+
+		private class PointListModel extends Tables.SimplifiedTableModel<ColumnID> {
+			
+			protected PointListModel() { super(ColumnID.values()); }
+			
+			@Override public void fireTableRowAdded  (int rowIndex) { super.fireTableRowAdded  (rowIndex); }
+			@Override public void fireTableRowRemoved(int rowIndex) { super.fireTableRowRemoved(rowIndex); }
+			@Override public void fireTableRowUpdate (int rowIndex) { super.fireTableRowUpdate (rowIndex); }
+			
+			@Override public int getRowCount() { return polyLine.points.size(); }
+			@Override public Object getValueAt(int rowIndex, int columnIndex, ColumnID columnID) {
+				if (rowIndex<0 || rowIndex>=polyLine.points.size()) return null;
+				net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(rowIndex);
+				switch (columnID) {
+				case X: return p.x;
+				case Y: return p.y;
+				}
+				return null;
+			}
+
+			@Override
+			protected boolean isCellEditable(int rowIndex, int columnIndex, ColumnID columnID) {
+				switch (columnID) {
+				case X: return !isXFixed;
+				case Y: return !isYFixed;
+				}
+				return false;
+			}
+
+			@Override
+			protected void setValueAt(Object aValue, int rowIndex, int columnIndex, ColumnID columnID) {
+				if (rowIndex<0 || rowIndex>=polyLine.points.size()) return;
+				net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(rowIndex);
+				boolean resetRow = false;
+				switch (columnID) {
+				case X: { double d=(double)aValue; if (Double.isNaN(d)) resetRow=true; else p.x=d; } break;
+				case Y: { double d=(double)aValue; if (Double.isNaN(d)) resetRow=true; else p.y=d; } break;
+				}
+				if (resetRow)
+					SwingUtilities.invokeLater(()->pointListModel.fireTableRowUpdate(rowIndex));
+				editorView.repaint();
+			}
+		}
+		
+		private static final Color COLOR_BACKGROUND_FIXED = new Color(0xf0f0f0);
+		private static final Color COLOR_FOREGROUND_FIXED = Color.GRAY;
+		
+		private class PointListRenderer extends DefaultTableCellRenderer {
+			private static final long serialVersionUID = 2427799200069333655L;
+
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				Component component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+				
+				if (value instanceof Double)
+					setText(String.format(Locale.ENGLISH, "%1.3f", (Double) value));
+				
+				ColumnID columnID = pointListModel.getColumnID(column);
+				boolean isFixed = (columnID==ColumnID.X && isXFixed) || (columnID==ColumnID.Y && isYFixed);
+				if (!isSelected)
+					setBackground(isFixed ? COLOR_BACKGROUND_FIXED : table.getBackground());
+				setForeground(isFixed ? COLOR_FOREGROUND_FIXED : isSelected ? table.getSelectionForeground() : table.getForeground());
+				
+				setHorizontalAlignment(RIGHT);
+				return component;
+			}
+		}
+		
 		
 		@Override protected Integer getNext(int x, int y) {
 			float xu = viewState.convertPos_ScreenToAngle_LongX(x);
@@ -599,7 +663,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
 			if (!isXFixed) p.x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+pickOffset.x));
 			if (!isYFixed) p.y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+pickOffset.y));
-			pointListModel.fireRowChanged(selectedPoint);
+			pointListModel.fireTableRowUpdate(selectedPoint);
 		}
 		
 	}
