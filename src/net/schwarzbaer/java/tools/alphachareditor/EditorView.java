@@ -9,6 +9,8 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
 import java.util.function.BiConsumer;
@@ -36,7 +38,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 	private LineForm<?>[] forms = null;
 	private Vector<GuideLine> guideLines = null;
-	private LineForm<?> highlightedForm = null;
+	private HashSet<LineForm<?>> highlightedForms = new HashSet<>();
 	private LineFormEditing<?> formEditing = null;
 	private GuideLine highlightedGuideLine;
 	private final Context context;
@@ -60,7 +62,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 	void setForms(LineForm<?>[] forms) {
 		this.forms = forms;
-		highlightedForm = null;
+		highlightedForms.clear();
 		deselect();
 		repaint();
 	}
@@ -69,7 +71,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	interface Context {
 		void setValuePanel(JPanel panel);
-		void updateHighlightedForm(LineForm<?> form);
+		void updateHighlightedForms(HashSet<LineForm<?>> forms);
 	}
 
 	double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
@@ -104,7 +106,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		if (formEditing!=null) formEditing.stopEditing();
 		formEditing = LineFormEditing.create(selectedForm,viewState,this,e);
 		if (formEditing!=null) context.setValuePanel(formEditing.createValuePanel());
-		highlightedForm = null;
+		highlightedForms.clear();
 		repaint();
 	}
 
@@ -114,18 +116,20 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 
 	private void setHighlightedForm(Point p) {
-		setHighlightedForm(getNext(p),true);
+		Vector<LineForm<?>> vector = new Vector<>();
+		LineForm<?> form = getNext(p);
+		if (form!=null) { vector.add(form); }
+		setHighlightedForms(vector,true);
 	}
-	void setHighlightedForm(LineForm<?> highlightedForm) {
-		setHighlightedForm(highlightedForm,false);
+	void setHighlightedForms(List<LineForm<?>> forms) {
+		setHighlightedForms(forms,false);
 	}
-	private void setHighlightedForm(LineForm<?> highlightedForm, boolean updateHighlightedInFormList) {
-		if (highlightedForm!=this.highlightedForm) {
-			this.highlightedForm = highlightedForm;
-			repaint();
-		}
+	private void setHighlightedForms(List<LineForm<?>> highlightedForms, boolean updateHighlightedInFormList) {
+		this.highlightedForms.clear();
+		this.highlightedForms.addAll(highlightedForms);
+		repaint();
 		if (updateHighlightedInFormList)
-			context.updateHighlightedForm(this.highlightedForm);
+			context.updateHighlightedForms(this.highlightedForms);
 	}
 
 	private LineForm<?> getNext(Point p) {
@@ -180,9 +184,17 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			LineForm<?> selectedForm = formEditing==null ? null : formEditing.getForm();
 			if (forms!=null)
 				for (LineForm<?> form:forms)
-					if (form!=selectedForm && form!=highlightedForm) form.drawLines(g2,viewState,false,false);
-			if (selectedForm!=null) { selectedForm.drawLines(g2,viewState,true ,false); selectedForm.drawPoints(g2, viewState); }
-			if (highlightedForm !=null) { highlightedForm .drawLines(g2,viewState,false,true ); highlightedForm .drawPoints(g2, viewState); }
+					if (form!=selectedForm && !highlightedForms.contains(form)) form.drawLines(g2,viewState,false,false);
+			
+			if (selectedForm!=null) {
+				selectedForm.drawLines(g2,viewState,true,false);
+				selectedForm.drawPoints(g2,viewState);
+			}
+			
+			for (LineForm<?> hlf:highlightedForms) {
+				hlf.drawLines(g2,viewState,false,true);
+				hlf.drawPoints(g2,viewState);
+			}
 		}
 		
 	}

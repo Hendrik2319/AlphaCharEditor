@@ -16,6 +16,8 @@ import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Vector;
 
 import javax.swing.BorderFactory;
@@ -77,9 +79,9 @@ class MainWindow extends StandardMainWindow {
 			@Override public void repaintView() { editorView.repaint(); }
 			@Override public Rectangle2D.Float getViewRectangle() { return editorView.getViewRectangle(); }
 
-			@Override public void changeHighlightedForm(LineForm<?> form) { editorView.setHighlightedForm(form); }
-			@Override public void changeSelectedForm   (LineForm<?> form) { editorView.setSelectedForm   (form); }
-			@Override public void changeHighlightedGuideLine(GuideLine guideLine) { editorView.setHighlightedGuideLine(guideLine); }
+			@Override public void changeHighlightedForms    (List<LineForm<?>> forms) { editorView.setHighlightedForms(forms); }
+			@Override public void changeSelectedForm        (LineForm<?> form       ) { editorView.setSelectedForm    (form); }
+			@Override public void changeHighlightedGuideLine(GuideLine guideLine    ) { editorView.setHighlightedGuideLine(guideLine); }
 			
 			@Override
 			public void addGuideLine(GuideLine guideLine) {
@@ -103,11 +105,11 @@ class MainWindow extends StandardMainWindow {
 				setNewArray(newArr);
 			}
 			@Override
-			public void removeForm(int index) {
-				if (lineforms==null || index<0 || index>=lineforms.length) return;
-				LineForm<?>[] newArr = Arrays.copyOf(lineforms, lineforms.length-1);
-				for (int i=index; i<newArr.length; ++i)
-					newArr[i] = lineforms[i+1];
+			public void removeForms(List<LineForm<?>> forms) {
+				if (forms==null || forms.isEmpty()) return;
+				Vector<LineForm<?>> vec = new Vector<>(Arrays.asList(lineforms));
+				for (LineForm<?> rf:forms) vec.remove(rf);
+				LineForm<?>[] newArr = vec.toArray(new LineForm<?>[vec.size()]);
 				setNewArray(newArr);
 			}
 
@@ -129,8 +131,17 @@ class MainWindow extends StandardMainWindow {
 		leftPanel.add(valuePanel = generalOptionPanel,BorderLayout.CENTER);
 		
 		editorView = new EditorView(new EditorView.Context() {
-			@Override public void updateHighlightedForm(LineForm<?> form) {
-				generalOptionPanel.setSelectedForm(form);
+			@Override public void updateHighlightedForms(HashSet<LineForm<?>> forms) {
+				if (lineforms==null)
+					generalOptionPanel.setSelectedForms(new int[0]);
+				else {
+					Vector<Integer> indices = new Vector<>();
+					for (int i=0; i<lineforms.length; i++) {
+						LineForm<?> form = lineforms[i];
+						if (forms.contains(form)) indices.add(i);
+					}
+					generalOptionPanel.setSelectedForms(indices.stream().mapToInt(v->v).toArray());
+				}
 			}
 			@Override public void setValuePanel(JPanel panel) {
 				if (valuePanel!=null) leftPanel.remove(valuePanel);
@@ -259,8 +270,8 @@ class MainWindow extends StandardMainWindow {
 			guideLinesPanel.setGuideLines(guideLines);
 		}
 	
-		void setSelectedForm(LineForm<?> form) {
-			formsPanel.setSelected(form);
+		void setSelectedForms(int[] selectedIndices) {
+			formsPanel.setSelected(selectedIndices);
 		}
 	
 		void setForms(LineForm<?>[] forms, Character selectedChar) {
@@ -269,10 +280,10 @@ class MainWindow extends StandardMainWindow {
 		
 		interface Context {
 			void addForm(LineForm<?> form);
-			void removeForm(int index);
+			void removeForms(List<LineForm<?>> forms);
 			void addGuideLine(GuideLine guideLine);
 			void removeGuideLine(int index);
-			void changeHighlightedForm(LineForm<?> form);
+			void changeHighlightedForms(List<LineForm<?>> forms);
 			void changeSelectedForm(LineForm<?> form);
 			void changeHighlightedGuideLine(GuideLine guideLine);
 			void repaintView();
@@ -292,11 +303,11 @@ class MainWindow extends StandardMainWindow {
 				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
 				
 				formList = new JList<>();
-				formList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				formList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 				formList.addListSelectionListener(e->{
-					LineForm<?> selectedValue = formList.getSelectedValue();
-					context.changeHighlightedForm(selectedValue);
-					setButtonsEnabled(selectedValue!=null);
+					List<LineForm<?>> selectedValues = formList.getSelectedValuesList();
+					context.changeHighlightedForms(selectedValues);
+					setButtonsEnabled(selectedValues.size());
 				});
 				
 				JScrollPane formListScrollPane = new JScrollPane(formList);
@@ -304,16 +315,16 @@ class MainWindow extends StandardMainWindow {
 				JPanel buttonPanel = new JPanel(new GridBagLayout());
 				buttonPanel.add(btnNew    = createButton("New"   , false, e->context.addForm(createNewForm())));
 				buttonPanel.add(btnEdit   = createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())));
-				buttonPanel.add(btnRemove = createButton("Remove", false, e->context.removeForm(formList.getSelectedIndex())));
+				buttonPanel.add(btnRemove = createButton("Remove", false, e->context.removeForms(formList.getSelectedValuesList())));
 				
 				add(formListScrollPane,BorderLayout.CENTER);
 				add(buttonPanel,BorderLayout.SOUTH);
 			}
 	
-			private void setButtonsEnabled(boolean enabled) {
+			private void setButtonsEnabled(int selection) {
 				//btnNew   .setEnabled(enabled);
-				btnEdit  .setEnabled(enabled);
-				btnRemove.setEnabled(enabled);
+				btnEdit  .setEnabled(selection==1);
+				btnRemove.setEnabled(selection>0);
 			}
 
 			private LineForm<?> createNewForm() {
@@ -324,10 +335,10 @@ class MainWindow extends StandardMainWindow {
 				return null;
 			}
 
-			void setSelected(LineForm<?> form) {
-				if (form==null) formList.clearSelection();
-				else formList.setSelectedValue(form, true);
-				setButtonsEnabled(form!=null);
+			void setSelected(int[] selectedIndices) {
+				if (selectedIndices==null || selectedIndices.length==0) formList.clearSelection();
+				else formList.setSelectedIndices(selectedIndices);
+				setButtonsEnabled(selectedIndices==null ? 0 : selectedIndices.length);
 			}
 	
 			void setForms(LineForm<?>[] forms, Character selectedChar) {
