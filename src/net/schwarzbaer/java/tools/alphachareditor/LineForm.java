@@ -101,7 +101,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			void highlightedPointChanged(Integer point);
 		}
 		
-		private Point nextNewPoint = null;
+		private NextNewPoint nextNewPoint = null;
 		private Integer highlightedPoint = null;
 		private HighlightListener listener = null;
 		
@@ -154,6 +154,13 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) p.x);
 			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
 			for (int i=1; i<points.size(); i++) {
+				if (nextNewPoint!=null && nextNewPoint.pos==i) {
+					int x2s = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
+					int y2s = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+					g2.drawLine(x1s,y1s,x2s,y2s);
+					x1s = x2s;
+					y1s = y2s;
+				}
 				p = points.get(i);
 				int x2s = viewState.convertPos_AngleToScreen_LongX((float) p.x);
 				int y2s = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
@@ -161,27 +168,74 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				x1s = x2s;
 				y1s = y2s;
 			}
-			if (nextNewPoint!=null) {
+			if (nextNewPoint!=null && nextNewPoint.pos>=points.size()) {
 				int x2s = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
 				int y2s = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
 				g2.drawLine(x1s,y1s,x2s,y2s);
 			}
 		}
-
+		
+		private static class NextNewPoint extends Point {
+			private int pos;
+			public NextNewPoint(double x, double y, int pos) {
+				super(x, y);
+				this.pos = pos;
+			}
+			public void set(double x, double y, int pos) {
+				set(x, y);
+				this.pos = pos;
+			}
+		}
+		
+		boolean setNextNewPointOnLine(double x, double y, double maxDist) {
+			Point p1 = points.get(0);
+			Integer index = null;
+			Point p = null;
+			double minDist = 0;
+			//Form.Line.LineDistance[] distArr = new Form.Line.LineDistance[points.size()-1];
+			for (int i=1; i<points.size(); i++) {
+				Point p2 = points.get(i);
+				Form.Line line = new Form.Line(p1.x,p1.y,p2.x,p2.y);
+				Form.Line.LineDistance dist = line.getDistance(x,y);
+				//distArr[i-1] = dist;
+				if (0<=dist.f && dist.f<=1 && dist.r<=maxDist && (index==null || dist.r<minDist)) {
+					index = i;
+					minDist = dist.r;
+					p = line.computePoint(dist.f);
+				}
+				p1 = p2;
+			}
+			//System.out.println("setNextNewPointOnLine: distArr = "+Arrays.toString(distArr));
+			
+			if (index == null || p == null) return false;
+			
+			if (nextNewPoint==null) nextNewPoint = new NextNewPoint(p.x,p.y, index);
+			else                    nextNewPoint.set(p.x,p.y, index);
+			return true;
+		}
+		
 		void setNextNewPoint(double x, double y) {
-			if (nextNewPoint==null)
-				nextNewPoint = new Point(x,y);
-			else
-				nextNewPoint.set(x,y);
+			if (nextNewPoint==null) nextNewPoint = new NextNewPoint(x,y,points.size());
+			else                    nextNewPoint.set(x,y,points.size());
 		}
 
 		void clearNextNewPoint() {
 			nextNewPoint = null;
 		}
 
-		void addNextNewPoint() {
-			if (nextNewPoint!=null) points.add(nextNewPoint);
+		int addNextNewPoint() {
+			int index = 0;
+			if (nextNewPoint!=null) {
+				if (0<=nextNewPoint.pos && nextNewPoint.pos<points.size()) {
+					points.insertElementAt(nextNewPoint, nextNewPoint.pos);
+					index = nextNewPoint.pos;
+				} else {
+					points.add(nextNewPoint);
+					index = points.size()-1;
+				}
+			}
 			nextNewPoint = null;
+			return index;
 		}
 		
 		boolean hasNextNewPoint() {

@@ -48,6 +48,14 @@ abstract class LineFormEditing<HighlightedPointType> {
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
 	}
+
+	@SuppressWarnings("unused")
+	private static String toString(double[] values, DoubleFunction<? extends String> mapper) {
+		return Arrays.toString(toStringArr(values, mapper));
+	}
+	private static String[] toStringArr(double[] values, DoubleFunction<? extends String> mapper) {
+		return Arrays.stream(values).mapToObj(mapper).toArray(n->new String[n]);
+	}
 	
 	interface EditableForm<HPType> {
 		void setHighlightedPoint(HPType point);
@@ -431,14 +439,6 @@ abstract class LineFormEditing<HighlightedPointType> {
 			Arrays.sort(anglesArr);
 			return anglesArr;
 		}
-
-		@SuppressWarnings("unused")
-		private String toString(double[] values, DoubleFunction<? extends String> mapper) {
-			return Arrays.toString(toStringArr(values, mapper));
-		}
-		private String[] toStringArr(double[] values, DoubleFunction<? extends String> mapper) {
-			return Arrays.stream(values).mapToObj(mapper).toArray(n->new String[n]);
-		}
 		
 		@Override protected void modifySelectedPoint(ArcPoint selectedPoint, int x, int y, Point pickOffset) {
 			x+=pickOffset.x;
@@ -712,20 +712,25 @@ abstract class LineFormEditing<HighlightedPointType> {
 			super.keyReleased(e);
 		}
 		
+		private void updateNextNewPoint(MouseEvent e) {
+			float xM = viewState.convertPos_ScreenToAngle_LongX(e.getX());
+			float yM = viewState.convertPos_ScreenToAngle_LatY (e.getY());
+			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE);
+			if (polyLine.setNextNewPointOnLine(xM,yM,maxDist)) return;
+			double x = editorView.stickToGuideLineX(xM);
+			double y = editorView.stickToGuideLineY(yM);
+			polyLine.setNextNewPoint(x,y);
+		}
 		private void setNextNewPoint(MouseEvent e) {
 			polyLine.setHighlightedPoint(null);
-			double x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(e.getX()));
-			double y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (e.getY()));
-			polyLine.setNextNewPoint(x,y);
+			updateNextNewPoint(e);
 			editorView.repaint();
 		}
 		private void addNextNewPoint(MouseEvent e) {
-			double x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(e.getX()));
-			double y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (e.getY()));
-			polyLine.setNextNewPoint(x,y);
-			polyLine.addNextNewPoint();
+			updateNextNewPoint(e);
+			int index = polyLine.addNextNewPoint();
 			cancelCellEditing();
-			pointListModel.fireTableRowAdded(polyLine.points.size()-1);
+			pointListModel.fireTableRowAdded(index);
 			editorView.repaint();
 		}
 		private void checkNextNewPoint(InputEvent e) {
