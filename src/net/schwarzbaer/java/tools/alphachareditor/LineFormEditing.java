@@ -49,11 +49,10 @@ abstract class LineFormEditing<HighlightedPointType> {
 		if (!condition) throw new IllegalStateException();
 	}
 
-	@SuppressWarnings("unused")
-	private static String toString(double[] values, DoubleFunction<? extends String> mapper) {
+	static String toString(double[] values, DoubleFunction<? extends String> mapper) {
 		return Arrays.toString(toStringArr(values, mapper));
 	}
-	private static String[] toStringArr(double[] values, DoubleFunction<? extends String> mapper) {
+	static String[] toStringArr(double[] values, DoubleFunction<? extends String> mapper) {
 		return Arrays.stream(values).mapToObj(mapper).toArray(n->new String[n]);
 	}
 	

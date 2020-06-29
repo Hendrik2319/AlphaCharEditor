@@ -127,7 +127,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			Double minDist = null;
 			for (int i=1; i<points.size(); i++) {
 				p = points.get(i);
-				Double dist = LineForm.Line.getDistance( x1,y1,p.x,p.y, x,y, maxDist);
+				Double dist = new LineForm.Line(x1,y1,p.x,p.y).getDistance(x,y, maxDist);
 				if (dist!=null && (minDist==null || minDist>dist)) minDist = dist;
 				x1 = p.x;
 				y1 = p.y;
@@ -247,11 +247,14 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		
 		enum LinePoint { P1,P2 } 
 		
-		LinePoint highlightedPoint = null; 
+		LinePoint highlightedPoint = null;
+		
+		private Line() { super(); }
+		private Line(double x1, double y1, double x2, double y2) { super(x1, y1, x2, y2); }
+
 		@Override public void setHighlightedPoint(LinePoint point) { highlightedPoint = point; }
 
-		@Override
-		public String toString() {
+		@Override public String toString() {
 			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
 		}
 
@@ -277,28 +280,21 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
-			return getDistance(x1, y1, x2, y2, x, y, maxDist);
-		}
-		
-		public static Double getDistance(double x1, double y1, double x2, double y2, float x, float y, float maxDist) {
-			double length = Math2.dist(x1,y1,x2,y2);
-			double f = ((x2-x1)*(x-x1)+(y2-y1)*(y-y1))/length/length; // cos(a)*|x-x1,y-y1|*|x2-x1,y2-y1| / |x2-x1,y2-y1|² -> (x1,y1) ..f.. (x2,y2)
-			if (f>1) {
+			LineDistance dist = getDistance(x, y);
+			if (dist.f>1) {
 				// after (x2,y2)
 				double d = Math2.dist(x2,y2,x,y);
-				if (d>maxDist) return null;
-				return d;
+				if (d<=maxDist) return d;
+				return null;
 			}
-			if (f<0) {
+			if (dist.f<0) {
 				// before (x1,y1)
 				double d = Math2.dist(x1,y1,x,y);
-				if (d>maxDist) return null;
-				return d;
+				if (d<=maxDist) return d;
+				return null;
 			}
-			// between (x1,y1) and (x2,y2)
-			double d = Math.abs(((x2-x1)*(y-y1)-(y2-y1)*(x-x1))/length); // sin(a)*|x-x1,y-y1|*|x2-x1,y2-y1| / |x2-x1,y2-y1|  =  sin(a)*|x-x1,y-y1|  =  r
-			if (d>maxDist) return null;
-			return d;
+			if (dist.r<=maxDist) return dist.r;
+			return null;
 		}
 	}
 	
