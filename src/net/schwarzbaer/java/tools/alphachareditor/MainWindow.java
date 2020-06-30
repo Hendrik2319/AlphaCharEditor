@@ -2,6 +2,7 @@ package net.schwarzbaer.java.tools.alphachareditor;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -39,11 +40,13 @@ import javax.swing.ListSelectionModel;
 import javax.swing.event.ListDataListener;
 
 import net.schwarzbaer.gui.Canvas;
+import net.schwarzbaer.gui.Disabler;
 import net.schwarzbaer.gui.FileChooser;
 import net.schwarzbaer.gui.StandardMainWindow;
 import net.schwarzbaer.image.alphachar.AlphaCharIO;
 import net.schwarzbaer.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
+import net.schwarzbaer.java.tools.alphachareditor.LineForm.FormType;
 
 class MainWindow extends StandardMainWindow {
 	private static final long serialVersionUID = 313126168052969131L;
@@ -86,6 +89,7 @@ class MainWindow extends StandardMainWindow {
 			
 			@Override
 			public void addGuideLine(GuideLine guideLine) {
+				if (guideLine==null) return;
 				alphaCharEditor.project.guideLines.add(guideLine);
 				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
 				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
@@ -93,6 +97,7 @@ class MainWindow extends StandardMainWindow {
 
 			@Override
 			public void removeGuideLine(int index) {
+				if (index<0 || index>=alphaCharEditor.project.guideLines.size()) return;
 				alphaCharEditor.project.guideLines.remove(index);
 				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
 				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
@@ -107,7 +112,7 @@ class MainWindow extends StandardMainWindow {
 			}
 			@Override
 			public void addForms(Vector<LineForm<?>> forms) {
-				if (forms==null) return;
+				if (forms==null || forms.isEmpty()) return;
 				LineForm<?>[] newArr = lineforms==null ? new LineForm[forms.size()] : Arrays.copyOf(lineforms, lineforms.length+forms.size());
 				int offset = lineforms==null ? 0 : lineforms.length;
 				for (int i=0; i<forms.size(); i++)
@@ -165,7 +170,7 @@ class MainWindow extends StandardMainWindow {
 				leftPanel.repaint();
 			}
 		});
-		editorView.setPreferredSize(500, 400);
+		editorView.setPreferredSize(500, 500);
 		
 		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
 		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
@@ -213,6 +218,11 @@ class MainWindow extends StandardMainWindow {
 		return menuBar;
 	}
 
+	static <A, C extends JComponent> C addToDisabler(Disabler<A> disabler, A disableTag, C component) {
+		disabler.add(disableTag, component);
+		return component;
+	}
+
 	static JToggleButton createToggleButton(String title, ButtonGroup bg, boolean selected, ActionListener al) {
 		JToggleButton comp = new JToggleButton(title,selected);
 		if (bg!=null) bg.add(comp);
@@ -229,7 +239,7 @@ class MainWindow extends StandardMainWindow {
 		if (al!=null) comp.addActionListener(al);
 		return comp;
 	}
-
+	
 	static JMenuItem createMenuItem(String title, ActionListener al) {
 		JMenuItem comp = new JMenuItem(title);
 		if (al!=null) comp.addActionListener(al);
@@ -289,6 +299,27 @@ class MainWindow extends StandardMainWindow {
 		void setForms(LineForm<?>[] forms, Character selectedChar) {
 			formsPanel.setForms(forms,selectedChar);
 		}
+
+		private Float showFloatInputDialog(Component parentComp, String message, Float initialValue) {
+			String newStr = JOptionPane.showInputDialog(parentComp, message, initialValue);
+			if (newStr==null) return null;
+			
+			try {
+				return Float.parseFloat(newStr);
+			} catch (NumberFormatException e) {
+				message = String.format("Can't parse \"%s\" as numeric value.", newStr);
+				JOptionPane.showMessageDialog(parentComp, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
+			}
+			
+			return null;
+		}
+		
+		private <V> V showMultipleChoiceDialog(Component parentComp, String message, String title, V[] selectionValues, V initialSelectionValue, Class<V> classObj) {
+			Object result = JOptionPane.showInputDialog(parentComp, message, title, JOptionPane.QUESTION_MESSAGE, null, selectionValues, initialSelectionValue);
+			if (result==null) return null;
+			if (!classObj.isAssignableFrom(result.getClass())) return null;
+			return classObj.cast(result);
+		}
 		
 		interface Context {
 			void addForm (LineForm<?> form);
@@ -304,21 +335,23 @@ class MainWindow extends StandardMainWindow {
 			
 		}
 	
+		enum FormsPanelButtons { New,Edit,Remove,Copy,Paste,Mirror,Translate }
+		
 		private class FormsPanel extends JPanel {
 			private static final long serialVersionUID = 5266768936706086790L;
 			private final JList<LineForm<?>> formList;
-			private final JButton btnNew;
-			private final JButton btnEdit;
-			private final JButton btnRemove;
-			private final JButton btnCopy;
-			private final JButton btnPaste;
 			private final Vector<LineForm<?>> localClipboard;
-	
+			private Disabler<FormsPanelButtons> disabler;
+			private Character selectedChar;
+			
 			FormsPanel() {
 				super(new BorderLayout(3,3));
 				setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
 				
 				localClipboard = new Vector<>();
+				
+				disabler = new Disabler<FormsPanelButtons>();
+				disabler.setCareFor(FormsPanelButtons.values());
 				
 				formList = new JList<>();
 				formList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -331,22 +364,53 @@ class MainWindow extends StandardMainWindow {
 				JScrollPane formListScrollPane = new JScrollPane(formList);
 				
 				JPanel buttonPanel1 = new JPanel(new GridBagLayout());
-				buttonPanel1.add(btnNew    = createButton("New"   , false, e->context.addForm(createNewForm())));
-				buttonPanel1.add(btnEdit   = createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())));
-				buttonPanel1.add(btnRemove = createButton("Remove", false, e->context.removeForms(formList.getSelectedValuesList())));
+				buttonPanel1.add( addToDisabler( disabler, FormsPanelButtons.New   , createButton("New"   , false, e->context.addForm(createNewForm())                       ) ) );
+				buttonPanel1.add( addToDisabler( disabler, FormsPanelButtons.Edit  , createButton("Edit"  , false, e->context.changeSelectedForm(formList.getSelectedValue())) ) );
+				buttonPanel1.add( addToDisabler( disabler, FormsPanelButtons.Remove, createButton("Remove", false, e->context.removeForms(formList.getSelectedValuesList())  ) ) );
 				
 				JPanel buttonPanel2 = new JPanel(new GridBagLayout());
-				buttonPanel2.add(btnCopy   = createButton("Copy" , false, e->copyForms(formList.getSelectedValuesList())));
-				buttonPanel2.add(btnPaste  = createButton("Paste", false, e->pasteForms()));
+				buttonPanel2.add( addToDisabler( disabler, FormsPanelButtons.Copy  , createButton("Copy" , false, e->copyForms(formList.getSelectedValuesList())) ) );
+				buttonPanel2.add( addToDisabler( disabler, FormsPanelButtons.Paste , createButton("Paste", false, e->pasteForms()                               ) ) );
+				
+				JPanel buttonPanel3 = new JPanel(new GridBagLayout());
+				buttonPanel3.add( addToDisabler( disabler, FormsPanelButtons.Mirror   , createButton("Mirror"   , false, e->mirrorForms   (formList.getSelectedValuesList()) ) ) );
+				buttonPanel3.add( addToDisabler( disabler, FormsPanelButtons.Translate, createButton("Translate", false, e->translateForms(formList.getSelectedValuesList()) ) ) );
 				
 				JPanel buttonGroupsPanel = new JPanel(new GridLayout(0,1));
 				buttonGroupsPanel.add(buttonPanel1);
 				buttonGroupsPanel.add(buttonPanel2);
+				buttonGroupsPanel.add(buttonPanel3);
 				
 				add(formListScrollPane,BorderLayout.CENTER);
 				add(buttonGroupsPanel,BorderLayout.SOUTH);
 			}
 	
+			private void translateForms(List<LineForm<?>> forms) {
+				Float x = showFloatInputDialog(this, "Set X translation value: ", null);
+				if (x==null) return;
+				Float y = showFloatInputDialog(this, "Set Y translation value: ", null);
+				if (y==null) return;
+				
+				for (LineForm<?> form:forms)
+					if (form!=null)
+						form.translate(x,y);
+				
+				context.repaintView();
+			}
+
+			private void mirrorForms(List<LineForm<?>> forms) {
+				LineForm.MirrorDirection dir = showMultipleChoiceDialog(this, "Select mirror direction:", "Mirror Direction", LineForm.MirrorDirection.values(), null, LineForm.MirrorDirection.class);
+				if (dir==null) return;
+				Float pos = showFloatInputDialog(this, String.format("Set position of %s mirror axis: ", dir.axisPos.toLowerCase()), null);
+				if (pos==null) return;
+				
+				for (LineForm<?> form:forms)
+					if (form!=null)
+						form.mirror(dir,pos);
+				
+				context.repaintView();
+			}
+
 			private void pasteForms() {
 				Vector<LineForm<?>> vec = new Vector<>();
 				for (LineForm<?> form:localClipboard)
@@ -357,27 +421,31 @@ class MainWindow extends StandardMainWindow {
 
 			private void copyForms(List<LineForm<?>> forms) {
 				localClipboard.clear();
-				for (LineForm<?> form:forms) {
+				for (LineForm<?> form:forms)
 					if (form!=null)
 						localClipboard.add(LineForm.clone(form));
-				}
 				setButtonsEnabled(formList.getSelectedValuesList().size());
 			}
 
 			private void setButtonsEnabled(int selection) {
-				//btnNew   .setEnabled(enabled);
-				btnEdit  .setEnabled(selection==1);
-				btnRemove.setEnabled(selection>0);
-				btnCopy  .setEnabled(selection>0);
-				btnPaste .setEnabled(!localClipboard.isEmpty());
+				disabler.setEnable(button->{
+					switch (button) {
+					case New: return selectedChar!=null;
+					case Edit: return selection==1;
+					case Copy:
+					case Remove:
+					case Mirror:
+					case Translate: return selection>0;
+					case Paste: return !localClipboard.isEmpty();
+					}
+					return false;
+				});
 			}
 
 			private LineForm<?> createNewForm() {
-				Object result = JOptionPane.showInputDialog(this, "Select type of new form:", "Form Type", JOptionPane.QUESTION_MESSAGE, null, LineForm.FormType.values(), null);
-				if (result==null) return null;
-				if (result instanceof LineForm.FormType)
-					return LineForm.createNew((LineForm.FormType) result, context.getViewRectangle());
-				return null;
+				FormType formType = showMultipleChoiceDialog(this, "Select type of new form:", "Form Type", LineForm.FormType.values(), null, LineForm.FormType.class);
+				if (formType==null) return null;
+				return LineForm.createNew(formType, context.getViewRectangle());
 			}
 
 			void setSelected(int[] selectedIndices) {
@@ -387,8 +455,9 @@ class MainWindow extends StandardMainWindow {
 			}
 	
 			void setForms(LineForm<?>[] forms, Character selectedChar) {
+				this.selectedChar = selectedChar;
 				formList.setModel(new FormListModel(forms));
-				btnNew.setEnabled(selectedChar!=null);
+				disabler.setEnable(FormsPanelButtons.New, this.selectedChar!=null);
 			}
 	
 			private final class FormListModel implements ListModel<LineForm<?>> {
@@ -470,25 +539,11 @@ class MainWindow extends StandardMainWindow {
 			}
 			
 			private GuideLine.Type getGuideLineType() {
-				Object result = JOptionPane.showInputDialog(this, "Select type of new GuideLine:", "GuideLine Type", JOptionPane.QUESTION_MESSAGE, null, GuideLine.Type.values(), null);
-				if (result==null) return null;
-				if (!(result instanceof GuideLine.Type)) return null;
-				return (GuideLine.Type) result;
+				return showMultipleChoiceDialog(this, "Select type of new GuideLine:", "GuideLine Type", GuideLine.Type.values(), null, GuideLine.Type.class);
 			}
 	
 			private Float getPosOfGuideLine(GuideLine.Type type, Float initialPos) {
-				String message = String.format("Set %s position of %s guideline:", type.axis, type.toString().toLowerCase());
-				String newStr = JOptionPane.showInputDialog(this, message);
-				if (newStr==null) return null;
-				
-				try {
-					return Float.parseFloat(newStr);
-				} catch (NumberFormatException e) {
-					message = String.format("Can't parse \"%s\" as numeric value.", newStr);
-					JOptionPane.showMessageDialog(this, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
-				}
-				
-				return null;
+				return showFloatInputDialog(this,String.format("Set %s position of %s guideline:", type.axis, type.toString().toLowerCase()), initialPos);
 			}
 
 			void setGuideLines(Vector<GuideLine> guideLines) {

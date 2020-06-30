@@ -459,7 +459,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 				while (a>arc.aStart+Math.PI*2) a-=Math.PI*2;
 				//if (form.aEnd != a) System.out.printf(Locale.ENGLISH, "form.aEnd: %1.4f%n", a);
 				arc.aEnd = a;
-				aEndField.setValue(arc.aEnd);
+				aEndField.setValue(arc.aEnd*180/Math.PI);
 			} break;
 			case Start: {
 				double a = computeAngle(x,y); 
@@ -467,7 +467,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 				while (a<arc.aEnd-Math.PI*2) a+=Math.PI*2;
 				//if (form.aStart != a) System.out.printf(Locale.ENGLISH, "form.aStart: %1.4f%n", a);
 				arc.aStart = a;
-				aStartField.setValue(arc.aStart);
+				aStartField.setValue(arc.aStart*180/Math.PI);
 			} break;
 			}
 		}

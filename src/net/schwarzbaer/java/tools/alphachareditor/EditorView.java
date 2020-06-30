@@ -126,7 +126,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 	private void setHighlightedForms(List<LineForm<?>> highlightedForms, boolean updateHighlightedInFormList) {
 		this.highlightedForms.clear();
-		this.highlightedForms.addAll(highlightedForms);
+		if (highlightedForms!=null && !highlightedForms.isEmpty())
+			this.highlightedForms.addAll(highlightedForms);
 		repaint();
 		if (updateHighlightedInFormList)
 			context.updateHighlightedForms(this.highlightedForms);

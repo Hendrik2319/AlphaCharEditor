@@ -20,7 +20,22 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	static final Stroke STROKE_STANDARD    = new BasicStroke(1f);
 	static final Color COLOR_HIGHLIGHTED = Color.BLUE;
 	static final Color COLOR_STANDARD    = Color.BLACK;
-
+	
+	enum MirrorDirection {
+		Horizontal_LeftRight("Horizontal","left to right","X"), Vertical_TopBottom("Vertical","top to bottom","Y");
+		final String name;
+		final String direction;
+		final String axisPos;
+		MirrorDirection(String name, String direction, String axisPos) {
+			this.name = name;
+			this.direction = direction;
+			this.axisPos = axisPos;
+		}
+		@Override public String toString() {
+			return name+" ("+direction+")";
+		}
+	}
+	
 	public default void drawLines(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
 		Stroke prevStroke = g2.getStroke();
 		if (isSelected||isHighlighted) {
@@ -38,6 +53,8 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	void drawPoints(Graphics2D g2, ViewState viewState);
 	Double getDistance(float x, float y, float maxDist);
 	LineForm<HighlightPointType> setValues(double[] values);
+	void mirror(MirrorDirection dir, double pos);
+	void translate(double x, double y);
 
 	static LineForm<?> convert(Form form) {
 		Assert(form instanceof LineForm);
@@ -113,8 +130,6 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		private Integer highlightedPoint = null;
 		private HighlightListener listener = null;
 		
-		
-		
 		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
 		public void setHighlightListener(HighlightListener listener) { this.listener = listener; }
 
@@ -128,6 +143,21 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 
 		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
+		
+		@Override
+		public void translate(double x, double y) {
+			for (Point p:points) { p.x+=x; p.y+=y; }
+		}
+		
+		@Override
+		public void mirror(MirrorDirection dir, double pos) {
+			for (Point p:points) {
+				switch (dir) {
+				case Horizontal_LeftRight: p.x = pos - (p.x-pos); break;
+				case Vertical_TopBottom  : p.y = pos - (p.y-pos); break;
+				}
+			}
+		}
 		
 		@Override
 		public Double getDistance(float x, float y, float maxDist) {
@@ -253,7 +283,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 	}
 	
-	static class Line extends Form.Line implements LineForm<Line.LinePoint> {
+	static class Line extends Form.Line implements LineForm<LineForm.Line.LinePoint> {
 		
 		enum LinePoint { P1,P2 } 
 		
@@ -266,6 +296,26 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 
 		@Override public String toString() {
 			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
+		}
+		
+		@Override
+		public void translate(double x, double y) {
+			x1+=x; y1+=y;
+			x2+=x; y2+=y;
+		}
+		
+		@Override
+		public void mirror(MirrorDirection dir, double pos) {
+			switch (dir) {
+			case Horizontal_LeftRight:
+				x1 = pos - (x1-pos);
+				x2 = pos - (x2-pos);
+				break;
+			case Vertical_TopBottom:
+				y1 = pos - (y1-pos);
+				y2 = pos - (y2-pos);
+				break;
+			}
 		}
 
 		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
@@ -308,7 +358,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 	}
 	
-	static class Arc extends Form.Arc implements LineForm<Arc.ArcPoint> {
+	static class Arc extends Form.Arc implements LineForm<LineForm.Arc.ArcPoint> {
 
 		private ArcPoint highlightedPoint = null;
 		@Override public void setHighlightedPoint(ArcPoint point) { highlightedPoint = point; }
@@ -330,6 +380,30 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		@Override
 		public String toString() {
 			return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI);
+		}
+		
+		@Override
+		public void translate(double x, double y) {
+			xC+=x; yC+=y;
+		}
+		
+		@Override
+		public void mirror(MirrorDirection dir, double pos) {
+			double aStart_temp;
+			switch (dir) {
+			case Horizontal_LeftRight:
+				xC = pos - (xC-pos);
+				aStart_temp = aStart;
+				aStart = Math.PI-aEnd;
+				aEnd   = Math.PI-aStart_temp;
+				break;
+			case Vertical_TopBottom:
+				yC = pos - (yC-pos);
+				aStart_temp = aStart;
+				aStart = -aEnd;
+				aEnd   = -aStart_temp;
+				break;
+			}
 		}
 
 		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
