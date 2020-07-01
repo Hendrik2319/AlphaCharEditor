@@ -426,15 +426,50 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 
 		@Override
 		public void drawLines(Graphics2D g2, ViewState viewState) {
-			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
-			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
-			int rs  = viewState.convertLength_LengthToScreen((float) r);
-			int startAngle = (int) Math.round( -aEnd       *180/Math.PI);
-			int arcAngle   = (int) Math.round((aEnd-aStart)*180/Math.PI);
-			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
-			// TODO: accurate arc drawing
+			float xCs = viewState.convertPos_AngleToScreen_LongXf((float) xC);
+			float yCs = viewState.convertPos_AngleToScreen_LatYf ((float) yC);
+			float rs  = viewState.convertLength_LengthToScreenF  ((float) r );
+			drawAccurateArc(g2,xCs,yCs,rs,(float)aStart,(float)aEnd);
+//			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
+//			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
+//			int rs  = viewState.convertLength_LengthToScreen((float) r);
+//			int startAngle = (int) Math.round( -aEnd       *180/Math.PI);
+//			int arcAngle   = (int) Math.round((aEnd-aStart)*180/Math.PI);
+//			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
 		}
 
+		private static void drawAccurateArc(Graphics2D g2, float xCs, float yCs, float rs, float aStart, float aEnd) {
+			double startAngleD = -aEnd        *180/Math.PI;
+			double arcAngleD   = (aEnd-aStart)*180/Math.PI;
+			
+			int startAngle = (int) Math.ceil(startAngleD);
+			int arcAngle   = (int) Math.floor(startAngleD+arcAngleD-startAngle);
+			int width  = Math.round(rs*2);
+			int height = Math.round(rs*2);
+			int x = Math.round(xCs-rs);
+			int y = Math.round(yCs-rs);
+			g2.drawArc(x, y, width, height, startAngle, arcAngle);
+			
+			if (rs*2*Math.PI/360 > 3) {
+				int x1,y1,x2,y2;
+				double a1,a2;
+				a1 = startAngleD*Math.PI/180;
+				a2 = startAngle *Math.PI/180;
+				x1 = (int) Math.round(xCs+rs*Math.cos(-a1));
+				y1 = (int) Math.round(yCs+rs*Math.sin(-a1));
+				x2 = (int) Math.round(xCs+rs*Math.cos(-a2));
+				y2 = (int) Math.round(yCs+rs*Math.sin(-a2));
+				g2.drawLine(x1, y1, x2, y2);
+				
+				a1 = (startAngleD+arcAngleD)*Math.PI/180;
+				a2 = (startAngle +arcAngle )*Math.PI/180;
+				x1 = (int) Math.round(xCs+rs*Math.cos(-a1));
+				y1 = (int) Math.round(yCs+rs*Math.sin(-a1));
+				x2 = (int) Math.round(xCs+rs*Math.cos(-a2));
+				y2 = (int) Math.round(yCs+rs*Math.sin(-a2));
+				g2.drawLine(x1, y1, x2, y2);
+			}
+		}
 		@Override
 		public void drawPoints(Graphics2D g2, ViewState viewState) {
 			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
