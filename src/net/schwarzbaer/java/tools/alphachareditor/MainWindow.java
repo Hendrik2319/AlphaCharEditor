@@ -648,7 +648,7 @@ class MainWindow extends StandardMainWindow {
 			this.highlightedField = null;
 			this.selectedField = getField(selectedChar);
 			this.selectedChar = selectedChar;
-			System.out.printf("SelectedChar: %s (%s)%n", this.selectedChar, this.selectedField);
+			//System.out.printf("SelectedChar: %s (%s)%n", this.selectedChar, this.selectedField);
 			repaint();
 		}
 

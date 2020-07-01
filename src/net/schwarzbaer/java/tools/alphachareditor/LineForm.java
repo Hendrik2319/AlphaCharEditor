@@ -4,8 +4,10 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.Locale;
+import java.util.function.BiConsumer;
 
 import net.schwarzbaer.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
@@ -36,7 +38,8 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 	}
 	
-	public default void drawLines(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
+
+	default void drawLines(Graphics2D g2, ViewState viewState, boolean isSelected, boolean isHighlighted) {
 		Stroke prevStroke = g2.getStroke();
 		if (isSelected||isHighlighted) {
 			g2.setStroke(STROKE_HIGHLIGHTED);
@@ -55,6 +58,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	LineForm<HighlightPointType> setValues(double[] values);
 	void mirror(MirrorDirection dir, double pos);
 	void translate(double x, double y);
+	void forEachPoint(BiConsumer<Double,Double> action);
 
 	static LineForm<?> convert(Form form) {
 		Assert(form instanceof LineForm);
@@ -132,17 +136,15 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		
 		@Override public void setHighlightedPoint(Integer point) { highlightedPoint = point; if (listener!=null) listener.highlightedPointChanged(highlightedPoint); }
 		public void setHighlightListener(HighlightListener listener) { this.listener = listener; }
+		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
+
+		@Override public String toString() { return String.format(Locale.ENGLISH, "PolyLine [ %d points ]", points.size()); }
+		public static String toString(Point p) { return String.format(Locale.ENGLISH, "Point ( %1.4f, %1.4f )", p.x, p.y); }
 
 		@Override
-		public String toString() {
-			return String.format(Locale.ENGLISH, "PolyLine [ %d points ]", points.size());
+		public void forEachPoint(BiConsumer<Double, Double> action) {
+			points.forEach(p->action.accept(p.x,p.y));
 		}
-
-		public static String toString(Point p) {
-			return String.format(Locale.ENGLISH, "Point ( %1.4f, %1.4f )", p.x, p.y);
-		}
-
-		@Override public LineForm.PolyLine setValues(double[] values) { super.setValues(values); return this; }
 		
 		@Override
 		public void translate(double x, double y) {
@@ -292,10 +294,14 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		private Line() { super(); }
 		private Line(double x1, double y1, double x2, double y2) { super(x1, y1, x2, y2); }
 
+		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
 		@Override public void setHighlightedPoint(LinePoint point) { highlightedPoint = point; }
-
-		@Override public String toString() {
-			return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2);
+		@Override public String toString() { return String.format(Locale.ENGLISH, "Line [ (%1.2f,%1.2f), (%1.2f,%1.2f) ]", x1, y1, x2, y2); }
+		
+		@Override
+		public void forEachPoint(BiConsumer<Double, Double> action) {
+			action.accept(x1,y1);
+			action.accept(x2,y2);
 		}
 		
 		@Override
@@ -317,8 +323,6 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				break;
 			}
 		}
-
-		@Override public LineForm.Line setValues(double[] values) { super.setValues(values); return this; }
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
@@ -375,11 +379,25 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				this.y = y;
 				Assert(this.type!=null);
 			}
+			
+			void set(Point2D.Float p) {
+				this.x = p.x;
+				this.y = p.y;
+			}
 		}
 		
+		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
+		@Override public String toString() { return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI); }
+		
 		@Override
-		public String toString() {
-			return String.format(Locale.ENGLISH, "Arc [ C:(%1.2f,%1.2f), R:%1.2f, Angle(%1.1f..%1.1f) ]", xC, yC, r, aStart*180/Math.PI, aEnd*180/Math.PI);
+		public void forEachPoint(BiConsumer<Double, Double> action) {
+			double xS = (xC+r*Math.cos(aStart));
+			double yS = (yC+r*Math.sin(aStart));
+			double xE = (xC+r*Math.cos(aEnd  ));
+			double yE = (yC+r*Math.sin(aEnd  ));
+			action.accept(xS,yS);
+			action.accept(xE,yE);
+			action.accept(xC,yC);
 		}
 		
 		@Override
@@ -406,8 +424,6 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			}
 		}
 
-		@Override public LineForm.Arc setValues(double[] values) { super.setValues(values); return this; }
-		
 		@Override
 		public void drawLines(Graphics2D g2, ViewState viewState) {
 			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
@@ -416,6 +432,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			int startAngle = (int) Math.round( -aEnd       *180/Math.PI);
 			int arcAngle   = (int) Math.round((aEnd-aStart)*180/Math.PI);
 			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
+			// TODO: accurate arc drawing
 		}
 
 		@Override
@@ -436,7 +453,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			}
 		}
 		
-		private boolean isType(ArcPoint p, ArcPoint.Type t) {
+		private static boolean isType(ArcPoint p, ArcPoint.Type t) {
 			return p!=null && p.type==t;
 		}
 

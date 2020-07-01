@@ -8,6 +8,7 @@ import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +24,7 @@ import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine.Type;
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	static final int MAX_NEAR_DISTANCE = 20;
-	static final int MAX_GUIDELINE_DISTANCE = 2;
+	static final int MAX_GUIDELINE_DISTANCE = 3;
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
@@ -42,6 +43,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private LineFormEditing<?> formEditing = null;
 	private GuideLine highlightedGuideLine;
 	private final Context context;
+	private boolean stickToGuideLines = true;
+	private boolean stickToFormPoints = true;
 	
 	EditorView(Context context) {
 		this.context = context;
@@ -73,9 +76,59 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		void setValuePanel(JPanel panel);
 		void updateHighlightedForms(HashSet<LineForm<?>> forms);
 	}
+	
+	Point2D.Float stickToGuides_px(int xs, int ys, boolean isXFixed, boolean isYFixed) {
+		float x = viewState.convertPos_ScreenToAngle_LongX(xs);
+		float y = viewState.convertPos_ScreenToAngle_LatY (ys);
+		return stickToGuides(x, y, isXFixed, isYFixed);
+	}
+	Point2D.Float stickToGuides(float x, float y, boolean isXFixed, boolean isYFixed) {
+		if (!isXFixed || !isYFixed) {
+			float maxDist = viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE);
+			GuideResult resultX = !stickToGuideLines ? null : GuideLine.stickToGuideLines(x, Type.Vertical  , maxDist, guideLines);
+			GuideResult resultY = !stickToGuideLines ? null : GuideLine.stickToGuideLines(y, Type.Horizontal, maxDist, guideLines);
+			GuideResult resultP = !stickToFormPoints ? null : stickToFormPoints(x,y,maxDist);
+			//System.out.printf(Locale.ENGLISH, "stickToGuides( x:%1.3f%s, y:%1.3f%s) -> GlX:%s GlY:%s FP:%s%n", x,isXFixed?"[F]":"", y,isYFixed?"[F]":"", resultX, resultY, resultP );
+			
+			if (!isXFixed && !isYFixed &&
+				resultP!=null && resultP.x!=null && resultP.y!=null &&
+				(resultX==null || resultP.dist<resultX.dist) &&
+				(resultY==null || resultP.dist<resultY.dist))
+				return new Point2D.Float(resultP.x, resultP.y);
+			if (!isXFixed && resultX!=null && resultX.x!=null) x = resultX.x;
+			if (!isYFixed && resultY!=null && resultY.y!=null) y = resultY.y;
+		}
+		return new Point2D.Float(x,y);
+	}
 
-	double stickToGuideLineX(float x) { return GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
-	double stickToGuideLineY(float y) { return GuideLine.stickToGuideLines(y, Type.Horizontal, viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines); }
+
+	private GuideResult stickToFormPoints(float x, float y, float maxDist) {
+		if (forms==null) return null;
+		TempGuideResult result = new TempGuideResult();
+		for (LineForm<?> form:forms) {
+			if (formEditing!=null && form==formEditing.getForm()) continue;
+			form.forEachPoint((xP,yP)->{
+				float d = (float) Math2.dist(xP,yP,x,y);
+				if (d<maxDist && (result.dist==null || d<result.dist)) {
+					result.dist = d;
+					result.x = xP.floatValue();
+					result.y = yP.floatValue();
+				}
+			});
+		}
+		return result.toGuideResult();
+	}
+
+//	float stickToGuideLineX(float x) {
+//		GuideResult result = GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines);
+//		if (result!=null && result.x!=null) x=result.x;
+//		return x;
+//	}
+//	float stickToGuideLineY(float y) {
+//		GuideResult result = GuideLine.stickToGuideLines(y, Type.Horizontal, viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines);
+//		if (result!=null && result.y!=null) y=result.y;
+//		return y;
+//	}
 	
 	void forEachGuideLines(BiConsumer<GuideLine.Type,Float> action) {
 		for (GuideLine gl:guideLines)
@@ -234,6 +287,37 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 	}
 	
+	static class GuideResult {
+		final Float x,y;
+		final float dist;
+		private GuideResult(Float x, Float y, float dist) {
+			this.x = x;
+			this.y = y;
+			this.dist = dist;
+		}
+		@Override
+		public String toString() {
+			String xStr = x==null?"":String.format(Locale.ENGLISH, "X:%1.3f, ", x);
+			String yStr = y==null?"":String.format(Locale.ENGLISH, "Y:%1.3f, ", y);
+			return String.format("(%s%sdist:%1.3f)", xStr, yStr, dist);
+		}
+		
+	}
+	
+	static class TempGuideResult {
+		float x,y;
+		Float dist;
+		private TempGuideResult() {
+			this.x = 0;
+			this.y = 0;
+			this.dist = null;
+		}
+		GuideResult toGuideResult() {
+			if (dist==null) return null;
+			return new GuideResult(x,y,dist);
+		}
+	}
+	
 	static class GuideLine {
 		
 		enum Type {
@@ -256,7 +340,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			return String.format(Locale.ENGLISH, "%s GuideLine @ %s:%1.2f", type, type.axis, pos);
 		}
 
-		static double stickToGuideLines(float val, Type type, float maxDist, Vector<GuideLine> lines) {
+		static GuideResult stickToGuideLines(float val, Type type, float maxDist, Vector<GuideLine> lines) {
 			Float dist = null;
 			Float pos = null;
 			if (lines!=null)
@@ -268,8 +352,12 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 							pos = gl.pos;
 						}
 					}
-			if (pos!=null) return pos;
-			return val;
+			if (pos!=null && dist!=null)
+				switch (type) {
+				case Horizontal: return new GuideResult(null, pos, dist);
+				case Vertical  : return new GuideResult(pos, null, dist);
+				}
+			return null;
 		}
 
 		public void draw(ViewState viewState, Graphics2D g2, int x, int y, int width, int height) {

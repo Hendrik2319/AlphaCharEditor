@@ -12,6 +12,7 @@ import java.awt.event.FocusListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Point2D;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Vector;
@@ -300,14 +301,21 @@ abstract class LineFormEditing<HighlightedPointType> {
 		protected void modifySelectedPoint(LinePoint selectedPoint, int x, int y, Point pickOffset) {
 			x+=pickOffset.x;
 			y+=pickOffset.y;
+			Point2D.Float p;
 			switch (selectedPoint) {
 			case P1:
-				if (!isX1Fixed) x1Field.setValue(line.x1 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
-				if (!isY1Fixed) y1Field.setValue(line.y1 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				//if (!isX1Fixed) x1Field.setValue(line.x1 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
+				//if (!isY1Fixed) y1Field.setValue(line.y1 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				p = editorView.stickToGuides_px( x,y, isX1Fixed, isY1Fixed );
+				if (!isX1Fixed) x1Field.setValue(line.x1 = p.x);
+				if (!isY1Fixed) y1Field.setValue(line.y1 = p.y);
 				break;
 			case P2:
-				if (!isX2Fixed) x2Field.setValue(line.x2 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
-				if (!isY2Fixed) y2Field.setValue(line.y2 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				//if (!isX2Fixed) x2Field.setValue(line.x2 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
+				//if (!isY2Fixed) y2Field.setValue(line.y2 = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				p = editorView.stickToGuides_px( x,y, isX2Fixed, isY2Fixed );
+				if (!isX2Fixed) x2Field.setValue(line.x2 = p.x);
+				if (!isY2Fixed) y2Field.setValue(line.y2 = p.y);
 				break;
 			}
 		}
@@ -444,14 +452,18 @@ abstract class LineFormEditing<HighlightedPointType> {
 			y+=pickOffset.y;
 			switch (selectedPoint.type) {
 			case Radius:
-				selectedPoint.x = viewState.convertPos_ScreenToAngle_LongX(x);
-				selectedPoint.y = viewState.convertPos_ScreenToAngle_LatY (y);
+				//selectedPoint.x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x));
+				//selectedPoint.y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y));
+				selectedPoint.set(editorView.stickToGuides_px(x,y, false, false));
 				arc.r = Math2.dist(arc.xC, arc.yC, selectedPoint.x, selectedPoint.y);
 				rField.setValue(arc.r);
 				break;
 			case Center:
-				if (!isCxFixed) cxField.setValue(selectedPoint.x = arc.xC = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
-				if (!isCyFixed) cyField.setValue(selectedPoint.y = arc.yC = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				//if (!isCxFixed) cxField.setValue(selectedPoint.x = arc.xC = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
+				//if (!isCyFixed) cyField.setValue(selectedPoint.y = arc.yC = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
+				Point2D.Float p = editorView.stickToGuides_px(x,y, isCxFixed, isCyFixed);
+				if (!isCxFixed) cxField.setValue(selectedPoint.x = arc.xC = p.x);
+				if (!isCyFixed) cyField.setValue(selectedPoint.y = arc.yC = p.y);
 				break;
 			case End  : {
 				double a = computeAngle(x,y); 
@@ -667,8 +679,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 
 		@Override protected void modifySelectedPoint(Integer selectedPoint, int x, int y, Point pickOffset) {
 			net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
-			if (!isXFixed) p.x = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x+pickOffset.x));
-			if (!isYFixed) p.y = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y+pickOffset.y));
+			p.set( editorView.stickToGuides_px( x+pickOffset.x, y+pickOffset.y, isXFixed, isYFixed ) );
 			pointListModel.fireTableRowUpdate(selectedPoint);
 		}
 		
@@ -716,9 +727,10 @@ abstract class LineFormEditing<HighlightedPointType> {
 			float yM = viewState.convertPos_ScreenToAngle_LatY (e.getY());
 			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE);
 			if (polyLine.setNextNewPointOnLine(xM,yM,maxDist)) return;
-			double x = editorView.stickToGuideLineX(xM);
-			double y = editorView.stickToGuideLineY(yM);
-			polyLine.setNextNewPoint(x,y);
+			//double x = editorView.stickToGuideLineX(xM);
+			//double y = editorView.stickToGuideLineY(yM);
+			Point2D.Float p = editorView.stickToGuides( xM,yM, false, false );
+			polyLine.setNextNewPoint(p.x,p.y);
 		}
 		private void setNextNewPoint(MouseEvent e) {
 			polyLine.setHighlightedPoint(null);
