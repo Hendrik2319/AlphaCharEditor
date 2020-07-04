@@ -1,5 +1,6 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -15,16 +16,22 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Vector;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JMenu;
@@ -32,6 +39,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JToggleButton;
@@ -65,6 +73,7 @@ class MainWindow extends StandardMainWindow {
 	private final GeneralOptionPanel generalOptionPanel;
 	private final FileChooser projectFileChooser;
 	private final FileChooser fontFileChooser;
+	private final EditorViewContextMenu editorViewContextMenu;
 
 	MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
 		super(title);
@@ -72,6 +81,8 @@ class MainWindow extends StandardMainWindow {
 		
 		projectFileChooser = new FileChooser("Project-File", "project");
 		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
+		
+		IconCache iconCache = new IconCache(20,20);
 		
 		selectedChar = null;
 		charRaster = new CharRaster(this::setSelectedChar);
@@ -169,8 +180,13 @@ class MainWindow extends StandardMainWindow {
 				leftPanel.revalidate();
 				leftPanel.repaint();
 			}
+			@Override public void showsContextMenu(int x, int y) {
+				editorViewContextMenu.prepareToShow();
+				editorViewContextMenu.show(editorView, x,y);
+			}
 		});
 		editorView.setPreferredSize(500, 500);
+		editorViewContextMenu = new EditorViewContextMenu(editorView,iconCache);
 		
 		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
 		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
@@ -569,6 +585,97 @@ class MainWindow extends StandardMainWindow {
 				@Override public void removeListDataListener(ListDataListener l) { listDataListeners.remove(l);}
 			}
 		}
+	}
+	
+	private static class EditorViewContextMenu extends JPopupMenu {
+		
+		private static final long serialVersionUID = 1271594755142232548L;
+		private final JCheckBoxMenuItem miStickToGuideLines;
+		private final JCheckBoxMenuItem miStickToFormPoints;
+		private final JCheckBoxMenuItem miShowThickLines;
+		private EditorView editorView;
+		//private IconCache iconCache;
+
+		public EditorViewContextMenu(EditorView editorView, IconCache iconCache) {
+			this.editorView = editorView;
+			//this.iconCache = iconCache;
+			add(miStickToGuideLines = createCheckBoxMI("Stick to GuideLines" , IconCache.EditorViewButtons.StickToGuideLiones, editorView.isStickToGuideLines(), editorView::setStickToGuideLines));
+			add(miStickToFormPoints = createCheckBoxMI("Stick to Form Points", IconCache.EditorViewButtons.StickToFormPoints , editorView.isStickToFormPoints(), editorView::setStickToFormPoints));
+			addSeparator();
+			add(miShowThickLines    = createCheckBoxMI("Show Thick Lines"    , IconCache.EditorViewButtons.ThickLines        , editorView.isShowThickLines   (), editorView::setShowThickLines   ));
+			add(createMenuItem("Set line width ...", e->{
+				float width = editorView.getThickLinesWidth();
+				String result = JOptionPane.showInputDialog(editorView, "Set width of thick lines:", width);
+				if (result!=null) {
+					try { editorView.setThickLinesWidth(Float.parseFloat(result)); }
+					catch (NumberFormatException e1) {
+						String message = "Error: Can't convert input into numeric value.";
+						JOptionPane.showMessageDialog(editorView, message, "Error", JOptionPane.ERROR_MESSAGE);
+					}
+				}
+			}));
+		}
+		
+		private JCheckBoxMenuItem createCheckBoxMI(String title, IconCache.EditorViewButtons key, boolean isSelected, Consumer<Boolean> setValue) {
+			JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, /*iconCache.getIcon(key),*/ isSelected);
+			if (setValue!=null) comp.addActionListener(e->setValue.accept(comp.isSelected()));
+			return comp;
+		}
+
+		public void prepareToShow() {
+			miStickToGuideLines.setSelected(editorView.isStickToGuideLines());
+			miStickToFormPoints.setSelected(editorView.isStickToFormPoints());
+			miShowThickLines   .setSelected(editorView.isShowThickLines   ());
+		}
+		
+	}
+
+	private static class IconCache {
+		enum EditorViewButtons { ThickLines, StickToGuideLiones, StickToFormPoints }
+		
+		private EnumMap<EditorViewButtons, Icon> editorViewButtons;
+		private int width;
+		private int height;
+		
+		IconCache(int width, int height) {
+			this.width = width;
+			this.height = height;
+			editorViewButtons = new EnumMap<>(EditorViewButtons.class);
+			for (EditorViewButtons key:EditorViewButtons.values())
+				editorViewButtons.put(key, createIcon(key));
+		}
+		
+		@SuppressWarnings("unused")
+		Icon getIcon(EditorViewButtons key) {
+			return editorViewButtons.get(key);
+		}
+		
+		private Icon createIcon(EditorViewButtons key) {
+			BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D g2 = image.createGraphics();
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			switch (key) {
+			
+			case StickToFormPoints:
+				// TODO
+				break;
+				
+			case StickToGuideLiones:
+				// TODO
+				break;
+				
+			case ThickLines:
+				g2.setStroke(new BasicStroke(width*0.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				g2.setColor(Color.BLUE.brighter());
+				g2.drawLine(width/2, height/2, width/2, height+height/2);
+				g2.setStroke(new BasicStroke(1, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				g2.setColor(Color.BLACK);
+				g2.drawLine(width/2, height/2, width/2, height+height/2);
+				break;
+			}
+			return new ImageIcon(image);
+		}
+		
 	}
 
 	private static class CharRaster extends Canvas {

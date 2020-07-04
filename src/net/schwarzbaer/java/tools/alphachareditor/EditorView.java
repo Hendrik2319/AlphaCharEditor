@@ -1,5 +1,6 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -34,8 +35,14 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	private static final Color COLOR_AXIS       = new Color(0x70000000,true);
 	private static final Color COLOR_BACKGROUND = Color.WHITE;
-	private static final Color COLOR_GUIDELINES            = new Color(0xf0f0f0);
-	private static final Color COLOR_GUIDELINES_HIGLIGHTED = new Color(0xb5f0b5);
+	private static final Color COLOR_GUIDELINES             = new Color(0x2f7f7f7f,true);
+	private static final Color COLOR_GUIDELINES_HIGHLIGHTED = new Color(0xb5f0b5);
+	private static final Color COLOR_THICKLINES  = new Color(0xf0f0f0);
+	private static final Color COLOR_THICKLINES2 = new Color(0xe0e0e0);
+	private static final Color COLOR_THICKLINES3 = new Color(0xd0d0d0);
+	private static final Color COLOR_POINT_FILL             = Color.WHITE;
+	private static final Color COLOR_POINT_FILL_HIGHLIGHTED = Color.GREEN;
+	private static final Color COLOR_POINT_CONTOUR          = Color.BLACK;
 
 	private LineForm<?>[] forms = null;
 	private Vector<GuideLine> guideLines = null;
@@ -45,6 +52,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	private final Context context;
 	private boolean stickToGuideLines = true;
 	private boolean stickToFormPoints = true;
+	private boolean showThickLines = true;
+	private float thickLinesWidth = 20f;
 	
 	EditorView(Context context) {
 		this.context = context;
@@ -57,6 +66,16 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			@Override public void keyPressed (KeyEvent e) { if (formEditing!=null) formEditing.keyPressed (e); }
 		});
 	}
+
+	boolean isStickToGuideLines() { return stickToGuideLines; }
+	boolean isStickToFormPoints() { return stickToFormPoints; }
+	boolean isShowThickLines   () { return showThickLines   ; }
+	void setStickToGuideLines(boolean stickToGuideLines) { this.stickToGuideLines = stickToGuideLines; repaint(); }
+	void setStickToFormPoints(boolean stickToFormPoints) { this.stickToFormPoints = stickToFormPoints; repaint(); }
+	void setShowThickLines   (boolean showThickLines   ) { this.showThickLines    = showThickLines   ; repaint(); }
+
+	float getThickLinesWidth()            { return thickLinesWidth; }
+	void  setThickLinesWidth(float width) { thickLinesWidth = width; repaint(); }
 
 	void setGuideLines(Vector<GuideLine> guideLines) {
 		this.guideLines = guideLines;
@@ -75,6 +94,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	interface Context {
 		void setValuePanel(JPanel panel);
 		void updateHighlightedForms(HashSet<LineForm<?>> forms);
+		void showsContextMenu(int x, int y);
 	}
 	
 	Point2D.Float stickToGuides_px(int xs, int ys, boolean isXFixed, boolean isYFixed) {
@@ -119,6 +139,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		return result.toGuideResult();
 	}
 
+
+
 //	float stickToGuideLineX(float x) {
 //		GuideResult result = GuideLine.stickToGuideLines(x, Type.Vertical  , viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE), guideLines);
 //		if (result!=null && result.x!=null) x=result.x;
@@ -135,7 +157,19 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			action.accept(gl.type,gl.pos);
 	}
 
-	@Override public void mouseClicked (MouseEvent e) { if (formEditing!=null) { if (!formEditing.onClicked(e)) deselect(); } else setSelectedForm(e); }
+	@Override public void mouseClicked (MouseEvent e) {
+		switch (e.getButton()) {
+		case MouseEvent.BUTTON1:
+			if (formEditing!=null) {
+				if (!formEditing.onClicked(e)) deselect();
+			} else
+				setSelectedForm(e);
+			break;
+		case MouseEvent.BUTTON3:
+			context.showsContextMenu(e.getX(),e.getY());
+			break;
+		}
+	}
 	@Override public void mouseEntered (MouseEvent e) { if (formEditing!=null) formEditing.onEntered (e); else setHighlightedForm(e.getPoint()); setHighlightedGuideLine(null); }
 	@Override public void mouseMoved   (MouseEvent e) { if (formEditing!=null) formEditing.onMoved   (e); else setHighlightedForm(e.getPoint()); }
 	@Override public void mouseExited  (MouseEvent e) { if (formEditing!=null) formEditing.onExited  (e); else setHighlightedForm((Point)null ); }
@@ -226,15 +260,33 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			g2.setClip(x, y, width, height);
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			//g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+
+			if (forms!=null && showThickLines) {
+				float lineWidth = viewState.convertLength_LengthToScreenF(thickLinesWidth);
+				
+				g2.setColor(COLOR_THICKLINES);
+				g2.setStroke(new BasicStroke(lineWidth,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
+				
+				g2.setColor(COLOR_THICKLINES2);
+				g2.setStroke(new BasicStroke(lineWidth/3*2,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
+				
+				g2.setColor(COLOR_THICKLINES3);
+				g2.setStroke(new BasicStroke(lineWidth/3,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
+				
+				g2.setStroke(new BasicStroke(1f));
+			}
 			
 			if (guideLines!=null)
 				for (GuideLine gl:guideLines) {
-					g2.setColor(gl==highlightedGuideLine ? COLOR_GUIDELINES_HIGLIGHTED : COLOR_GUIDELINES);
+					g2.setColor(gl==highlightedGuideLine ? COLOR_GUIDELINES_HIGHLIGHTED : COLOR_GUIDELINES);
 					gl.draw(viewState,g2,x,y,width,height);
 				}
 			
 			drawMapDecoration(g2, x, y, width, height);
-			
+
 			LineForm<?> selectedForm = formEditing==null ? null : formEditing.getForm();
 			if (forms!=null)
 				for (LineForm<?> form:forms)
@@ -258,9 +310,9 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		int radius = 3;
 //		G2.SETCOLOR(COLOR.BLACK);
 //		G2.SETXORMODE(COLOR.WHITE);
-		g2.setColor(highlighted ? Color.GREEN : Color.WHITE);
+		g2.setColor(highlighted ? COLOR_POINT_FILL_HIGHLIGHTED : COLOR_POINT_FILL);
 		g2.fillOval(x-radius+1, y-radius+1, 2*radius-1, 2*radius-1);
-		g2.setColor(Color.BLACK);
+		g2.setColor(COLOR_POINT_CONTOUR);
 		g2.drawOval(x-radius, y-radius, 2*radius, 2*radius);
 //		g2.setPaintMode();
 	}
