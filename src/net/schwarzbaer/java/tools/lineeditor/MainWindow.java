@@ -17,7 +17,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -34,7 +33,6 @@ import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JList;
-import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -49,14 +47,13 @@ import javax.swing.event.ListDataListener;
 
 import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.Disabler;
-import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.gui.StandardMainWindow;
-import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
+import net.schwarzbaer.java.tools.alphachareditor.AlphaCharEditor;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.lineeditor.LineForm.FormType;
 
-class MainWindow extends StandardMainWindow {
+public class MainWindow extends StandardMainWindow {
 	private static final long serialVersionUID = 313126168052969131L;
 	
 	static void Assert(boolean condition) {
@@ -71,16 +68,11 @@ class MainWindow extends StandardMainWindow {
 	private final CharRaster charRaster;
 	private final EditorView editorView;
 	private final GeneralOptionPanel generalOptionPanel;
-	private final FileChooser projectFileChooser;
-	private final FileChooser fontFileChooser;
 	private final EditorViewContextMenu editorViewContextMenu;
 
-	MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
+	public MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
 		super(title);
 		this.alphaCharEditor = alphaCharEditor_;
-		
-		projectFileChooser = new FileChooser("Project-File", "project");
-		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
 		
 		IconCache iconCache = new IconCache(20,20);
 		
@@ -197,7 +189,7 @@ class MainWindow extends StandardMainWindow {
 		contentPane.add(leftPanel,BorderLayout.WEST);
 		contentPane.add(editorViewPanel,BorderLayout.CENTER);
 		
-		JMenuBar menuBar = createMenuBar();
+		JMenuBar menuBar = alphaCharEditor.createMenuBar();
 		
 		startGUI(contentPane, menuBar);
 		editorView.reset();
@@ -212,26 +204,6 @@ class MainWindow extends StandardMainWindow {
 		lineforms = LineForm.convert(forms);
 		editorView.setForms(lineforms);
 		generalOptionPanel.setForms(lineforms,selectedChar);
-	}
-	
-	private JMenuBar createMenuBar() {
-		JMenuBar menuBar = new JMenuBar();
-		
-		JMenu projectMenu = menuBar.add(new JMenu("Project"));
-		projectMenu.add(createMenuItem("New Project"        ,e->alphaCharEditor.createNewProject()));
-		projectMenu.add(createMenuItem("Reload Project"     ,e->alphaCharEditor.reloadProject(                            )));
-		projectMenu.add(createMenuItem("Load Project ..."   ,e->alphaCharEditor.loadProject  (      getProjectFileToOpen())));
-		projectMenu.add(createMenuItem("Save Project"       ,e->alphaCharEditor.saveProject  (this::getProjectFileToSave  )));
-		projectMenu.add(createMenuItem("Save Project As ...",e->alphaCharEditor.saveProjectAs(      getProjectFileToSave())));
-		
-		JMenu fontMenu = menuBar.add(new JMenu("Font"));
-		fontMenu.add(createMenuItem("Load Default Font",e->{ alphaCharEditor.project.loadDefaultFont();                     updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Reload Font"      ,e->{ alphaCharEditor.project.reloadFont(                         ); updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ alphaCharEditor.project.loadFont  (      getFontFileToOpen()); updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Save Font"        ,e->{ alphaCharEditor.project.saveFont  (this::getFontFileToSave  ); }));
-		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ alphaCharEditor.project.saveFontAs(      getFontFileToSave()); }));
-		
-		return menuBar;
 	}
 
 	static <A, C extends JComponent> C addToDisabler(Disabler<A> disabler, A disableTag, C component) {
@@ -262,28 +234,13 @@ class MainWindow extends StandardMainWindow {
 		return comp;
 	}
 
-	private File getFileToSave(FileChooser fileChooser) {
-		if (fileChooser.showSaveDialog(this) != FileChooser.APPROVE_OPTION) return null;
-		return fileChooser.getSelectedFile();
-	}
-
-	private File getFileToOpen(FileChooser fileChooser) {
-		if (fileChooser.showOpenDialog(this) != FileChooser.APPROVE_OPTION) return null;
-		return fileChooser.getSelectedFile();
-	}
-
-	private File getProjectFileToSave() { return getFileToSave(projectFileChooser); }
-	private File getProjectFileToOpen() { return getFileToOpen(projectFileChooser); }
-	private File getFontFileToSave() { return getFileToSave(fontFileChooser); }
-	private File getFontFileToOpen() { return getFileToOpen(fontFileChooser); }
-
-	void updateAfterProjectLoad() {
+	public void updateAfterProjectLoad() {
 		editorView        .setGuideLines(alphaCharEditor.project.guideLines);
 		generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
 		updateAfterFontLoad();
 	}
 
-	private void updateAfterFontLoad() {
+	public void updateAfterFontLoad() {
 		charRaster.updateCharList(alphaCharEditor.project.font,null);
 		setSelectedChar(null);
 	}

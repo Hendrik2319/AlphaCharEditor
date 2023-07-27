@@ -1,7 +1,8 @@
-package net.schwarzbaer.java.tools.lineeditor;
+package net.schwarzbaer.java.tools.alphachareditor;
 
 import java.awt.Dimension;
 import java.awt.Point;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,13 +17,19 @@ import java.util.HashMap;
 import java.util.Vector;
 import java.util.function.Supplier;
 
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
+import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.system.Settings;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
+import net.schwarzbaer.java.tools.lineeditor.LineForm;
+import net.schwarzbaer.java.tools.lineeditor.MainWindow;
 
 public class AlphaCharEditor {
 	
@@ -56,12 +63,17 @@ public class AlphaCharEditor {
 	}
 
 	MainWindow mainwindow = null;
-	Project project;
+	public Project project;
 	final AppSettings settings;
+	private final FileChooser projectFileChooser;
+	private final FileChooser fontFileChooser;
 
 	private AlphaCharEditor() {
 		settings = new AppSettings();
 		createDefaultProject();
+		
+		projectFileChooser = new FileChooser("Project-File", "project");
+		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
 	}
 
 	private void createDefaultProject() {
@@ -122,6 +134,47 @@ public class AlphaCharEditor {
 		return this;
 	}
 	
+	public JMenuBar createMenuBar() {
+		JMenuBar menuBar = new JMenuBar();
+		
+		JMenu projectMenu = menuBar.add(new JMenu("Project"));
+		projectMenu.add(createMenuItem("New Project"        ,e->createNewProject()));
+		projectMenu.add(createMenuItem("Reload Project"     ,e->reloadProject(                            )));
+		projectMenu.add(createMenuItem("Load Project ..."   ,e->loadProject  (      getProjectFileToOpen())));
+		projectMenu.add(createMenuItem("Save Project"       ,e->saveProject  (this::getProjectFileToSave  )));
+		projectMenu.add(createMenuItem("Save Project As ...",e->saveProjectAs(      getProjectFileToSave())));
+		
+		JMenu fontMenu = menuBar.add(new JMenu("Font"));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ project.loadDefaultFont();                     mainwindow.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Reload Font"      ,e->{ project.reloadFont(                         ); mainwindow.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ project.loadFont  (      getFontFileToOpen()); mainwindow.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Save Font"        ,e->{ project.saveFont  (this::getFontFileToSave  ); }));
+		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ project.saveFontAs(      getFontFileToSave()); }));
+		
+		return menuBar;
+	}
+
+	private File getFileToSave(FileChooser fileChooser) {
+		if (fileChooser.showSaveDialog(mainwindow) != FileChooser.APPROVE_OPTION) return null;
+		return fileChooser.getSelectedFile();
+	}
+
+	private File getFileToOpen(FileChooser fileChooser) {
+		if (fileChooser.showOpenDialog(mainwindow) != FileChooser.APPROVE_OPTION) return null;
+		return fileChooser.getSelectedFile();
+	}
+
+	private File getProjectFileToSave() { return getFileToSave(projectFileChooser); }
+	private File getProjectFileToOpen() { return getFileToOpen(projectFileChooser); }
+	private File getFontFileToSave() { return getFileToSave(fontFileChooser); }
+	private File getFontFileToOpen() { return getFileToOpen(fontFileChooser); }
+	
+	static JMenuItem createMenuItem(String title, ActionListener al) {
+		JMenuItem comp = new JMenuItem(title);
+		if (al!=null) comp.addActionListener(al);
+		return comp;
+	}
+
 	static class AppSettings extends Settings<AppSettings.ValueGroup,AppSettings.ValueKey> {
 		
 		enum ValueGroup implements Settings.GroupKeys<ValueKey> {
@@ -160,10 +213,10 @@ public class AlphaCharEditor {
 		}
 	}
 	
-	static class Project {
+	public static class Project {
 		private File projectFile;
-        Vector<GuideLine> guideLines = new Vector<>();;
-    	HashMap<Character, Form[]> font = null;
+        public Vector<GuideLine> guideLines = new Vector<>();;
+    	public HashMap<Character, Form[]> font = null;
     	private File fontFile = null;
 		private boolean fontIsDefault = false;
     	

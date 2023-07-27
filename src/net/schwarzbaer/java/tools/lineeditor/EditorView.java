@@ -22,7 +22,7 @@ import javax.swing.JPanel;
 import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine.Type;
 
-class EditorView extends ZoomableCanvas<EditorView.ViewState> {
+public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	static final int MAX_NEAR_DISTANCE = 20;
 	static final int MAX_GUIDELINE_DISTANCE = 3;
@@ -370,18 +370,18 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 	}
 	
-	static class GuideLine {
+	public static class GuideLine {
 		
-		enum Type {
+		public enum Type { // TODO: public ?
 			Horizontal("Y"), Vertical("X");
 			final String axis;
 			Type(String axis) { this.axis = axis; }
 		}
 
-		final Type type;
-		double pos;
+		public final Type type; // TODO: public ?
+		public double pos; // TODO: public ?
 		
-		public GuideLine(Type type, double pos) {
+		public GuideLine(Type type, double pos) { // TODO: public ?
 			this.type = type;
 			this.pos = pos;
 			Assert(this.type!=null);

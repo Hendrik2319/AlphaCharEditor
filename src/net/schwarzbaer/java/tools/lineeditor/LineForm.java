@@ -12,7 +12,7 @@ import java.util.function.BiConsumer;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 
-interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
+public interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
@@ -116,7 +116,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		return null;
 	}
 
-	static class Factory implements Form.Factory {
+	public static class Factory implements Form.Factory {
 		@Override public PolyLine createPolyLine(double[] values) { return new PolyLine().setValues(values); }
 		@Override public Line     createLine    (double[] values) { return new Line    ().setValues(values); }
 		@Override public Arc      createArc     (double[] values) { return new Arc     ().setValues(values); }
