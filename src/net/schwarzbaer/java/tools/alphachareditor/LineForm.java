@@ -9,7 +9,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import java.util.function.BiConsumer;
 
-import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
 interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
@@ -54,7 +54,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	
 	void drawLines (Graphics2D g2, ViewState viewState);
 	void drawPoints(Graphics2D g2, ViewState viewState);
-	Double getDistance(float x, float y, float maxDist);
+	Double getDistance(double x, double y, double maxDist);
 	LineForm<HighlightPointType> setValues(double[] values);
 	void mirror(MirrorDirection dir, double pos);
 	void translate(double x, double y);
@@ -162,7 +162,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 		
 		@Override
-		public Double getDistance(float x, float y, float maxDist) {
+		public Double getDistance(double x, double y, double maxDist) {
 			Point p = points.get(0);
 			double x1 = p.x;
 			double y1 = p.y;
@@ -180,39 +180,39 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		@Override public void drawPoints(Graphics2D g2, ViewState viewState) {
 			for (int i=0; i<points.size(); i++) {
 				Point p1 = points.get(i);
-				int x = viewState.convertPos_AngleToScreen_LongX((float) p1.x);
-				int y = viewState.convertPos_AngleToScreen_LatY ((float) p1.y);
+				int x = viewState.convertPos_AngleToScreen_LongX(p1.x);
+				int y = viewState.convertPos_AngleToScreen_LatY (p1.y);
 				EditorView.drawPoint(g2,x,y,highlightedPoint!=null && i==highlightedPoint.intValue());
 			}
 			if (nextNewPoint!=null) {
-				int x = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
-				int y = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+				int x = viewState.convertPos_AngleToScreen_LongX(nextNewPoint.x);
+				int y = viewState.convertPos_AngleToScreen_LatY (nextNewPoint.y);
 				EditorView.drawPoint(g2,x,y,true);
 			}
 		}
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
 			Point p = points.get(0);
-			int x1s = viewState.convertPos_AngleToScreen_LongX((float) p.x);
-			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
+			int x1s = viewState.convertPos_AngleToScreen_LongX(p.x);
+			int y1s = viewState.convertPos_AngleToScreen_LatY (p.y);
 			for (int i=1; i<points.size(); i++) {
 				if (nextNewPoint!=null && nextNewPoint.pos==i) {
-					int x2s = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
-					int y2s = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+					int x2s = viewState.convertPos_AngleToScreen_LongX(nextNewPoint.x);
+					int y2s = viewState.convertPos_AngleToScreen_LatY (nextNewPoint.y);
 					g2.drawLine(x1s,y1s,x2s,y2s);
 					x1s = x2s;
 					y1s = y2s;
 				}
 				p = points.get(i);
-				int x2s = viewState.convertPos_AngleToScreen_LongX((float) p.x);
-				int y2s = viewState.convertPos_AngleToScreen_LatY ((float) p.y);
+				int x2s = viewState.convertPos_AngleToScreen_LongX(p.x);
+				int y2s = viewState.convertPos_AngleToScreen_LatY (p.y);
 				g2.drawLine(x1s,y1s,x2s,y2s);
 				x1s = x2s;
 				y1s = y2s;
 			}
 			if (nextNewPoint!=null && nextNewPoint.pos>=points.size()) {
-				int x2s = viewState.convertPos_AngleToScreen_LongX((float) nextNewPoint.x);
-				int y2s = viewState.convertPos_AngleToScreen_LatY ((float) nextNewPoint.y);
+				int x2s = viewState.convertPos_AngleToScreen_LongX(nextNewPoint.x);
+				int y2s = viewState.convertPos_AngleToScreen_LatY (nextNewPoint.y);
 				g2.drawLine(x1s,y1s,x2s,y2s);
 			}
 		}
@@ -325,25 +325,25 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 
 		@Override public void drawLines(Graphics2D g2, ViewState viewState) {
-			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
-			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
-			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
-			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
+			int x1s = viewState.convertPos_AngleToScreen_LongX(x1);
+			int y1s = viewState.convertPos_AngleToScreen_LatY (y1);
+			int x2s = viewState.convertPos_AngleToScreen_LongX(x2);
+			int y2s = viewState.convertPos_AngleToScreen_LatY (y2);
 			g2.drawLine(x1s,y1s,x2s,y2s);
 		}
 		
 		@Override
 		public void drawPoints(Graphics2D g2, ViewState viewState) {
-			int x1s = viewState.convertPos_AngleToScreen_LongX((float) x1);
-			int y1s = viewState.convertPos_AngleToScreen_LatY ((float) y1);
-			int x2s = viewState.convertPos_AngleToScreen_LongX((float) x2);
-			int y2s = viewState.convertPos_AngleToScreen_LatY ((float) y2);
+			int x1s = viewState.convertPos_AngleToScreen_LongX(x1);
+			int y1s = viewState.convertPos_AngleToScreen_LatY (y1);
+			int x2s = viewState.convertPos_AngleToScreen_LongX(x2);
+			int y2s = viewState.convertPos_AngleToScreen_LatY (y2);
 			EditorView.drawPoint(g2,x1s,y1s,highlightedPoint==LinePoint.P1);
 			EditorView.drawPoint(g2,x2s,y2s,highlightedPoint==LinePoint.P2);
 		}
 
 		@Override
-		public Double getDistance(float x, float y, float maxDist) {
+		public Double getDistance(double x, double y, double maxDist) {
 			LineDistance dist = getDistance(x, y);
 			if (dist.f>1) {
 				// after (x2,y2)
@@ -381,6 +381,10 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 			}
 			
 			void set(Point2D.Float p) {
+				this.x = p.x;
+				this.y = p.y;
+			}
+			void set(Point2D.Double p) {
 				this.x = p.x;
 				this.y = p.y;
 			}
@@ -426,9 +430,9 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 
 		@Override
 		public void drawLines(Graphics2D g2, ViewState viewState) {
-			float xCs = viewState.convertPos_AngleToScreen_LongXf((float) xC);
-			float yCs = viewState.convertPos_AngleToScreen_LatYf ((float) yC);
-			float rs  = viewState.convertLength_LengthToScreenF  ((float) r );
+			double xCs = viewState.convertPos_AngleToScreen_LongXf(xC);
+			double yCs = viewState.convertPos_AngleToScreen_LatYf (yC);
+			double rs  = viewState.convertLength_LengthToScreenF  (r );
 			drawAccurateArc(g2,xCs,yCs,rs,(float)aStart,(float)aEnd);
 //			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
 //			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
@@ -438,16 +442,16 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 //			g2.drawArc(xCs-rs, yCs-rs, rs*2, rs*2, startAngle, arcAngle);
 		}
 
-		private static void drawAccurateArc(Graphics2D g2, float xCs, float yCs, float rs, float aStart, float aEnd) {
+		private static void drawAccurateArc(Graphics2D g2, double xCs, double yCs, double rs, double aStart, double aEnd) {
 			double startAngleD = -aEnd        *180/Math.PI;
 			double arcAngleD   = (aEnd-aStart)*180/Math.PI;
 			
 			int startAngle = (int) Math.ceil(startAngleD);
 			int arcAngle   = (int) Math.floor(startAngleD+arcAngleD-startAngle);
-			int width  = Math.round(rs*2);
-			int height = Math.round(rs*2);
-			int x = Math.round(xCs-rs);
-			int y = Math.round(yCs-rs);
+			int width  = (int) Math.round(rs*2);
+			int height = (int) Math.round(rs*2);
+			int x = (int) Math.round(xCs-rs);
+			int y = (int) Math.round(yCs-rs);
 			g2.drawArc(x, y, width, height, startAngle, arcAngle);
 			
 			if (rs*2*Math.PI/360 > 3) {
@@ -472,18 +476,18 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 		@Override
 		public void drawPoints(Graphics2D g2, ViewState viewState) {
-			int xCs = viewState.convertPos_AngleToScreen_LongX((float) xC);
-			int yCs = viewState.convertPos_AngleToScreen_LatY ((float) yC);
-			int xSs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aStart)));
-			int ySs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aStart)));
-			int xEs = viewState.convertPos_AngleToScreen_LongX((float) (xC+r*Math.cos(aEnd  )));
-			int yEs = viewState.convertPos_AngleToScreen_LatY ((float) (yC+r*Math.sin(aEnd  )));
+			int xCs = viewState.convertPos_AngleToScreen_LongX(xC);
+			int yCs = viewState.convertPos_AngleToScreen_LatY (yC);
+			int xSs = viewState.convertPos_AngleToScreen_LongX(xC+r*Math.cos(aStart));
+			int ySs = viewState.convertPos_AngleToScreen_LatY (yC+r*Math.sin(aStart));
+			int xEs = viewState.convertPos_AngleToScreen_LongX(xC+r*Math.cos(aEnd  ));
+			int yEs = viewState.convertPos_AngleToScreen_LatY (yC+r*Math.sin(aEnd  ));
 			EditorView.drawPoint(g2,xSs,ySs,isType(highlightedPoint,ArcPoint.Type.Start ));
 			EditorView.drawPoint(g2,xEs,yEs,isType(highlightedPoint,ArcPoint.Type.End   ));
 			EditorView.drawPoint(g2,xCs,yCs,isType(highlightedPoint,ArcPoint.Type.Center));
 			if (isType(highlightedPoint,ArcPoint.Type.Radius)) {
-				int xRs = viewState.convertPos_AngleToScreen_LongX((float) highlightedPoint.x);
-				int yRs = viewState.convertPos_AngleToScreen_LatY ((float) highlightedPoint.y);
+				int xRs = viewState.convertPos_AngleToScreen_LongX(highlightedPoint.x);
+				int yRs = viewState.convertPos_AngleToScreen_LatY (highlightedPoint.y);
 				EditorView.drawPoint(g2,xRs,yRs,true);
 			}
 		}
@@ -493,7 +497,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		}
 
 		@Override
-		public Double getDistance(float x, float y, float maxDist) {
+		public Double getDistance(double x, double y, double maxDist) {
 			double dC = Math2.dist(xC,yC,x,y);
 			if (Math.abs(dC-r)>maxDist) return null;
 			

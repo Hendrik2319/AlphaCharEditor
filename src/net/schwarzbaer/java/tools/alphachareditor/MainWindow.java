@@ -47,12 +47,12 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListDataListener;
 
-import net.schwarzbaer.gui.Canvas;
-import net.schwarzbaer.gui.Disabler;
-import net.schwarzbaer.gui.FileChooser;
-import net.schwarzbaer.gui.StandardMainWindow;
-import net.schwarzbaer.image.alphachar.AlphaCharIO;
-import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.lib.gui.Canvas;
+import net.schwarzbaer.java.lib.gui.Disabler;
+import net.schwarzbaer.java.lib.gui.FileChooser;
+import net.schwarzbaer.java.lib.gui.StandardMainWindow;
+import net.schwarzbaer.java.lib.image.alphachar.AlphaCharIO;
+import net.schwarzbaer.java.lib.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.FormType;
 
@@ -316,12 +316,12 @@ class MainWindow extends StandardMainWindow {
 			formsPanel.setForms(forms,selectedChar);
 		}
 
-		private Float showFloatInputDialog(Component parentComp, String message, Float initialValue) {
+		private <V extends Number> V showNumberInputDialog(Component parentComp, String message, V initialValue, NumberParser<V> parser) {
 			String newStr = JOptionPane.showInputDialog(parentComp, message, initialValue);
 			if (newStr==null) return null;
 			
 			try {
-				return Float.parseFloat(newStr);
+				return parser.parseNumber(newStr);
 			} catch (NumberFormatException e) {
 				message = String.format("Can't parse \"%s\" as numeric value.", newStr);
 				JOptionPane.showMessageDialog(parentComp, message, "Wrong input", JOptionPane.ERROR_MESSAGE);
@@ -330,6 +330,19 @@ class MainWindow extends StandardMainWindow {
 			return null;
 		}
 		
+		interface NumberParser<V extends Number>
+		{
+			V parseNumber(String str) throws NumberFormatException;
+		}
+
+		private Double showDoubleInputDialog(Component parentComp, String message, Double initialValue) {
+			return showNumberInputDialog(parentComp, message, initialValue, Double::parseDouble);
+		}
+
+		private Float showFloatInputDialog(Component parentComp, String message, Float initialValue) {
+			return showNumberInputDialog(parentComp, message, initialValue, Float::parseFloat);
+		}
+
 		private <V> V showMultipleChoiceDialog(Component parentComp, String message, String title, V[] selectionValues, V initialSelectionValue, Class<V> classObj) {
 			Object result = JOptionPane.showInputDialog(parentComp, message, title, JOptionPane.QUESTION_MESSAGE, null, selectionValues, initialSelectionValue);
 			if (result==null) return null;
@@ -537,7 +550,7 @@ class MainWindow extends StandardMainWindow {
 				GuideLine.Type type = getGuideLineType();
 				if (type==null) return null;
 				
-				Float pos = getPosOfGuideLine(type, null);
+				Double pos = getPosOfGuideLine(type, null);
 				if (pos==null) return null;
 				
 				return new GuideLine(type, pos);
@@ -546,7 +559,7 @@ class MainWindow extends StandardMainWindow {
 			private void editGuideLine(GuideLine selected) {
 				if (selected==null) return;
 				
-				Float pos = getPosOfGuideLine(selected.type, selected.pos);
+				Double pos = getPosOfGuideLine(selected.type, selected.pos);
 				if (pos==null) return;
 				
 				selected.pos = pos;
@@ -558,8 +571,8 @@ class MainWindow extends StandardMainWindow {
 				return showMultipleChoiceDialog(this, "Select type of new GuideLine:", "GuideLine Type", GuideLine.Type.values(), null, GuideLine.Type.class);
 			}
 	
-			private Float getPosOfGuideLine(GuideLine.Type type, Float initialPos) {
-				return showFloatInputDialog(this,String.format("Set %s position of %s guideline:", type.axis, type.toString().toLowerCase()), initialPos);
+			private Double getPosOfGuideLine(GuideLine.Type type, Double initialPos) {
+				return showDoubleInputDialog(this,String.format("Set %s position of %s guideline:", type.axis, type.toString().toLowerCase()), initialPos);
 			}
 
 			void setGuideLines(Vector<GuideLine> guideLines) {
@@ -715,7 +728,7 @@ class MainWindow extends StandardMainWindow {
 				createCharArray('A','Z'),
 				createCharArray('a','z'),
 				createCharArray('0','9'),
-				new char[] { 'ä','ö','ü', 'Ä','Ö','Ü', 'ß' }
+				new char[] { 'Ã¤','Ã¶','Ã¼', 'Ã„','Ã–','Ãœ', 'ÃŸ' }
 			};
 			
 			rows = new int[chars.length];

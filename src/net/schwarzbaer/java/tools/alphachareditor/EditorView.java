@@ -19,7 +19,7 @@ import java.util.function.BiConsumer;
 
 import javax.swing.JPanel;
 
-import net.schwarzbaer.gui.ZoomableCanvas;
+import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine.Type;
 
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
@@ -97,14 +97,14 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		void showsContextMenu(int x, int y);
 	}
 	
-	Point2D.Float stickToGuides_px(int xs, int ys, boolean isXFixed, boolean isYFixed) {
-		float x = viewState.convertPos_ScreenToAngle_LongX(xs);
-		float y = viewState.convertPos_ScreenToAngle_LatY (ys);
+	Point2D.Double stickToGuides_px(int xs, int ys, boolean isXFixed, boolean isYFixed) {
+		double x = viewState.convertPos_ScreenToAngle_LongX(xs);
+		double y = viewState.convertPos_ScreenToAngle_LatY (ys);
 		return stickToGuides(x, y, isXFixed, isYFixed);
 	}
-	Point2D.Float stickToGuides(float x, float y, boolean isXFixed, boolean isYFixed) {
+	Point2D.Double stickToGuides(double x, double y, boolean isXFixed, boolean isYFixed) {
 		if (!isXFixed || !isYFixed) {
-			float maxDist = viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE);
+			double maxDist = viewState.convertLength_ScreenToLength(MAX_GUIDELINE_DISTANCE);
 			GuideResult resultX = !stickToGuideLines ? null : GuideLine.stickToGuideLines(x, Type.Vertical  , maxDist, guideLines);
 			GuideResult resultY = !stickToGuideLines ? null : GuideLine.stickToGuideLines(y, Type.Horizontal, maxDist, guideLines);
 			GuideResult resultP = !stickToFormPoints ? null : stickToFormPoints(x,y,maxDist);
@@ -114,25 +114,25 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 				resultP!=null && resultP.x!=null && resultP.y!=null &&
 				(resultX==null || resultP.dist<resultX.dist) &&
 				(resultY==null || resultP.dist<resultY.dist))
-				return new Point2D.Float(resultP.x, resultP.y);
+				return new Point2D.Double(resultP.x, resultP.y);
 			if (!isXFixed && resultX!=null && resultX.x!=null) x = resultX.x;
 			if (!isYFixed && resultY!=null && resultY.y!=null) y = resultY.y;
 		}
-		return new Point2D.Float(x,y);
+		return new Point2D.Double(x,y);
 	}
 
 
-	private GuideResult stickToFormPoints(float x, float y, float maxDist) {
+	private GuideResult stickToFormPoints(double x, double y, double maxDist) {
 		if (forms==null) return null;
 		TempGuideResult result = new TempGuideResult();
 		for (LineForm<?> form:forms) {
 			if (formEditing!=null && form==formEditing.getForm()) continue;
 			form.forEachPoint((xP,yP)->{
-				float d = (float) Math2.dist(xP,yP,x,y);
+				double d = Math2.dist(xP,yP,x,y);
 				if (d<maxDist && (result.dist==null || d<result.dist)) {
 					result.dist = d;
-					result.x = xP.floatValue();
-					result.y = yP.floatValue();
+					result.x = xP;
+					result.y = yP;
 				}
 			});
 		}
@@ -152,7 +152,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 //		return y;
 //	}
 	
-	void forEachGuideLines(BiConsumer<GuideLine.Type,Float> action) {
+	void forEachGuideLines(BiConsumer<GuideLine.Type,Double> action) {
 		for (GuideLine gl:guideLines)
 			action.accept(gl.type,gl.pos);
 	}
@@ -225,9 +225,9 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		
 		Double minDist = null;
 		LineForm<?> nearest = null;
-		float maxDist = viewState.convertLength_ScreenToLength(MAX_NEAR_DISTANCE);
-		float x = viewState.convertPos_ScreenToAngle_LongX(p.x);
-		float y = viewState.convertPos_ScreenToAngle_LatY (p.y);
+		double maxDist = viewState.convertLength_ScreenToLength(MAX_NEAR_DISTANCE);
+		double x = viewState.convertPos_ScreenToAngle_LongX(p.x);
+		double y = viewState.convertPos_ScreenToAngle_LatY (p.y);
 		//System.out.printf(Locale.ENGLISH, "getNext: %f,%f (max:%f)%n", x,y,maxDist);
 		for (LineForm<?> form:forms) {
 			Double dist = form.getDistance(x,y,maxDist);
@@ -243,10 +243,10 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 	public Rectangle2D.Float getViewRectangle() {
 		Rectangle2D.Float rect = new Rectangle2D.Float();
-		rect.x      = viewState.convertPos_ScreenToAngle_LongX(0);
-		rect.y      = viewState.convertPos_ScreenToAngle_LatY (0);
-		rect.width  = viewState.convertPos_ScreenToAngle_LongX(0+this.width)  - rect.x;
-		rect.height = viewState.convertPos_ScreenToAngle_LatY (0+this.height) - rect.y;
+		rect.x      = (float) viewState.convertPos_ScreenToAngle_LongX(0);
+		rect.y      = (float) viewState.convertPos_ScreenToAngle_LatY (0);
+		rect.width  = (float) (viewState.convertPos_ScreenToAngle_LongX(0+this.width)  - rect.x);
+		rect.height = (float) (viewState.convertPos_ScreenToAngle_LatY (0+this.height) - rect.y);
 		return rect;
 	}
 
@@ -262,7 +262,7 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			//g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
 
 			if (forms!=null && showThickLines) {
-				float lineWidth = viewState.convertLength_LengthToScreenF(thickLinesWidth);
+				float lineWidth = viewState.convertLength_LengthToScreenF((double) thickLinesWidth).floatValue();
 				
 				g2.setColor(COLOR_THICKLINES);
 				g2.setStroke(new BasicStroke(lineWidth,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
@@ -332,17 +332,17 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 		@Override
 		protected void determineMinMax(MapLatLong min, MapLatLong max) {
-			min.latitude_y  = (float) -50;
-			min.longitude_x = (float) -100;
-			max.latitude_y  = (float) 150;
-			max.longitude_x = (float) 300;
+			min.latitude_y  =  -50.0;
+			min.longitude_x = -100.0;
+			max.latitude_y  =  150.0;
+			max.longitude_x =  300.0;
 		}
 	}
 	
 	static class GuideResult {
-		final Float x,y;
-		final float dist;
-		private GuideResult(Float x, Float y, float dist) {
+		final Double x,y;
+		final double dist;
+		private GuideResult(Double x, Double y, double dist) {
 			this.x = x;
 			this.y = y;
 			this.dist = dist;
@@ -357,8 +357,8 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 	
 	static class TempGuideResult {
-		float x,y;
-		Float dist;
+		double x,y;
+		Double dist;
 		private TempGuideResult() {
 			this.x = 0;
 			this.y = 0;
@@ -379,9 +379,9 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 
 		final Type type;
-		float pos;
+		double pos;
 		
-		public GuideLine(Type type, float pos) {
+		public GuideLine(Type type, double pos) {
 			this.type = type;
 			this.pos = pos;
 			Assert(this.type!=null);
@@ -392,14 +392,14 @@ class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			return String.format(Locale.ENGLISH, "%s GuideLine @ %s:%1.2f", type, type.axis, pos);
 		}
 
-		static GuideResult stickToGuideLines(float val, Type type, float maxDist, Vector<GuideLine> lines) {
-			Float dist = null;
-			Float pos = null;
+		static GuideResult stickToGuideLines(double val, Type type, double maxDist, Vector<GuideLine> lines) {
+			Double dist = null;
+			Double pos = null;
 			if (lines!=null)
 				for (GuideLine gl:lines)
 					if (gl.type==type) {
-						float d = Math.abs(gl.pos-val);
-						if (d<=maxDist && (dist==null || dist.floatValue()>d)) {
+						double d = Math.abs(gl.pos-val);
+						if (d<=maxDist && (dist==null || dist>d)) {
 							dist = d;
 							pos = gl.pos;
 						}

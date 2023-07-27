@@ -1,6 +1,6 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
-import net.schwarzbaer.image.bumpmapping.BumpMapping;
+import net.schwarzbaer.java.lib.image.bumpmapping.BumpMapping;
 
 public class Math2 {
 

@@ -19,10 +19,10 @@ import java.util.function.Supplier;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
-import net.schwarzbaer.image.alphachar.AlphaCharIO;
-import net.schwarzbaer.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.alphachar.AlphaCharIO;
+import net.schwarzbaer.java.lib.image.alphachar.Form;
+import net.schwarzbaer.java.lib.system.Settings;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
-import net.schwarzbaer.system.Settings;
 
 public class AlphaCharEditor {
 	
@@ -193,7 +193,7 @@ public class AlphaCharEditor {
     				out.printf("Font=%s%n", fontFile.getAbsolutePath());
     			
     			for (GuideLine gl:guideLines)
-					out.printf("GuideLine.%s=%s%n", gl.type.name(), Float.toString(gl.pos));
+					out.printf("GuideLine.%s=%s%n", gl.type.name(), Double.toString(gl.pos));
     			
     		} catch (FileNotFoundException e) {
 				e.printStackTrace();
@@ -225,7 +225,7 @@ public class AlphaCharEditor {
 						if (line.startsWith(prefix)) {
 							String str = line.substring(prefix.length());
 							try {
-								float pos = Float.parseFloat(str);
+								double pos = Double.parseDouble(str);
 								project.guideLines.add(new GuideLine(type, pos));
 							} catch (NumberFormatException e) {
 								System.err.printf("Can't convert \"%s\" in line \"%s\" into a numeric value.", str, line);

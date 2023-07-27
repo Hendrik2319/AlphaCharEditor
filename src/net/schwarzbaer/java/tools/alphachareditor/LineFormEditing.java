@@ -34,8 +34,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellEditor;
 
-import net.schwarzbaer.gui.Tables;
-import net.schwarzbaer.gui.Tables.SimplifiedColumnConfig;
+import net.schwarzbaer.java.lib.gui.Tables;
+import net.schwarzbaer.java.lib.gui.Tables.SimplifiedColumnConfig;
+import net.schwarzbaer.java.lib.image.alphachar.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint;
@@ -267,9 +268,9 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 
 		@Override protected LinePoint getNext(int x, int y) {
-			float xu = viewState.convertPos_ScreenToAngle_LongX(x);
-			float yu = viewState.convertPos_ScreenToAngle_LatY (y);
-			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
+			double xu = viewState.convertPos_ScreenToAngle_LongX(x);
+			double yu = viewState.convertPos_ScreenToAngle_LatY (y);
+			double maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
 			
 			double d1 = Math2.dist(line.x1, line.y1, xu, yu);
 			double d2 = Math2.dist(line.x2, line.y2, xu, yu);
@@ -301,7 +302,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		protected void modifySelectedPoint(LinePoint selectedPoint, int x, int y, Point pickOffset) {
 			x+=pickOffset.x;
 			y+=pickOffset.y;
-			Point2D.Float p;
+			Point2D.Double p;
 			switch (selectedPoint) {
 			case P1:
 				//if (!isX1Fixed) x1Field.setValue(line.x1 = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
@@ -376,9 +377,9 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 
 		@Override protected ArcPoint getNext(int x, int y) {
-			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
-			float xM = viewState.convertPos_ScreenToAngle_LongX(x);
-			float yM = viewState.convertPos_ScreenToAngle_LatY (y);
+			double maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
+			double xM = viewState.convertPos_ScreenToAngle_LongX(x);
+			double yM = viewState.convertPos_ScreenToAngle_LatY (y);
 			
 			double xC = arc.xC;
 			double yC = arc.yC;
@@ -411,10 +412,10 @@ abstract class LineFormEditing<HighlightedPointType> {
 			if (selectedPoint.type==Type.Start || selectedPoint.type==Type.End) {
 				glAngles = computeIntersectionPointsWithGuideLines(arc.xC,arc.yC,arc.r);
 				maxGlAngle = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE)/arc.r;
-				//System.out.printf(Locale.ENGLISH, "maxGlAngle: %1.4f (%1.2f°)%n", maxGlAngle, maxGlAngle*180/Math.PI);
+				//System.out.printf(Locale.ENGLISH, "maxGlAngle: %1.4f (%1.2fÂ°)%n", maxGlAngle, maxGlAngle*180/Math.PI);
 				//System.out.printf(Locale.ENGLISH, "glAngles:%n");
 				//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.4f", d            )));
-				//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.2f°", d*180/Math.PI)));
+				//System.out.printf(Locale.ENGLISH, "   %s%n", toString(glAngles, d->String.format(Locale.ENGLISH, "%1.2fÂ°", d*180/Math.PI)));
 			}
 		}
 
@@ -461,7 +462,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			case Center:
 				//if (!isCxFixed) cxField.setValue(selectedPoint.x = arc.xC = editorView.stickToGuideLineX(viewState.convertPos_ScreenToAngle_LongX(x)));
 				//if (!isCyFixed) cyField.setValue(selectedPoint.y = arc.yC = editorView.stickToGuideLineY(viewState.convertPos_ScreenToAngle_LatY (y)));
-				Point2D.Float p = editorView.stickToGuides_px(x,y, isCxFixed, isCyFixed);
+				Point2D.Double p = editorView.stickToGuides_px(x,y, isCxFixed, isCyFixed);
 				if (!isCxFixed) cxField.setValue(selectedPoint.x = arc.xC = p.x);
 				if (!isCyFixed) cyField.setValue(selectedPoint.y = arc.yC = p.y);
 				break;
@@ -485,8 +486,8 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 
 		private double computeAngle(int x, int y) {
-			float xM = viewState.convertPos_ScreenToAngle_LongX(x);
-			float yM = viewState.convertPos_ScreenToAngle_LatY (y);
+			double xM = viewState.convertPos_ScreenToAngle_LongX(x);
+			double yM = viewState.convertPos_ScreenToAngle_LatY (y);
 			double aM = Math2.angle(arc.xC, arc.yC, xM, yM);
 			double aMinDist = Math.PI*2;
 			Double aMin = null;
@@ -500,7 +501,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 					aMin = a;
 				}
 			}
-			//System.out.printf(Locale.ENGLISH, "AngleDistances: %s%n", toString(aDistArr, d->String.format(Locale.ENGLISH, "%1.2f°", d*180/Math.PI)));
+			//System.out.printf(Locale.ENGLISH, "AngleDistances: %s%n", toString(aDistArr, d->String.format(Locale.ENGLISH, "%1.2fÂ°", d*180/Math.PI)));
 			if (aMin!=null) return aMin;
 			return aM;
 		}
@@ -598,7 +599,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			@Override public int getRowCount() { return polyLine.points.size(); }
 			@Override public Object getValueAt(int rowIndex, int columnIndex, ColumnID columnID) {
 				if (rowIndex<0 || rowIndex>=polyLine.points.size()) return null;
-				net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(rowIndex);
+				Form.PolyLine.Point p = polyLine.points.get(rowIndex);
 				switch (columnID) {
 				case X: return p.x;
 				case Y: return p.y;
@@ -618,7 +619,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			@Override
 			protected void setValueAt(Object aValue, int rowIndex, int columnIndex, ColumnID columnID) {
 				if (rowIndex<0 || rowIndex>=polyLine.points.size()) return;
-				net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(rowIndex);
+				Form.PolyLine.Point p = polyLine.points.get(rowIndex);
 				boolean resetRow = false;
 				switch (columnID) {
 				case X: { double d=(double)aValue; if (Double.isNaN(d)) resetRow=true; else p.x=d; } break;
@@ -656,14 +657,14 @@ abstract class LineFormEditing<HighlightedPointType> {
 		
 		
 		@Override protected Integer getNext(int x, int y) {
-			float xu = viewState.convertPos_ScreenToAngle_LongX(x);
-			float yu = viewState.convertPos_ScreenToAngle_LatY (y);
-			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
+			double xu = viewState.convertPos_ScreenToAngle_LongX(x);
+			double yu = viewState.convertPos_ScreenToAngle_LatY (y);
+			double maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_NEAR_DISTANCE);
 			
 			Integer index = null;
 			double minDist = 0;
 			for (int i=0; i<polyLine.points.size(); i++) {
-				net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(i);
+				Form.PolyLine.Point p = polyLine.points.get(i);
 				double d = Math2.dist(p.x, p.y, xu, yu);
 				if (d<maxDist && (index==null || d<minDist)) {
 					minDist = d;
@@ -678,7 +679,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		@Override protected float getSelectedPointY(Integer selectedPoint) { return (float) polyLine.points.get(selectedPoint).y; }
 
 		@Override protected void modifySelectedPoint(Integer selectedPoint, int x, int y, Point pickOffset) {
-			net.schwarzbaer.image.alphachar.Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
+			Form.PolyLine.Point p = polyLine.points.get(selectedPoint);
 			p.set( editorView.stickToGuides_px( x+pickOffset.x, y+pickOffset.y, isXFixed, isYFixed ) );
 			pointListModel.fireTableRowUpdate(selectedPoint);
 		}
@@ -723,13 +724,13 @@ abstract class LineFormEditing<HighlightedPointType> {
 		}
 		
 		private void updateNextNewPoint(MouseEvent e) {
-			float xM = viewState.convertPos_ScreenToAngle_LongX(e.getX());
-			float yM = viewState.convertPos_ScreenToAngle_LatY (e.getY());
-			float maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE);
+			double xM = viewState.convertPos_ScreenToAngle_LongX(e.getX());
+			double yM = viewState.convertPos_ScreenToAngle_LatY (e.getY());
+			double maxDist = viewState.convertLength_ScreenToLength(EditorView.MAX_GUIDELINE_DISTANCE);
 			if (polyLine.setNextNewPointOnLine(xM,yM,maxDist)) return;
 			//double x = editorView.stickToGuideLineX(xM);
 			//double y = editorView.stickToGuideLineY(yM);
-			Point2D.Float p = editorView.stickToGuides( xM,yM, false, false );
+			Point2D.Double p = editorView.stickToGuides( xM,yM, false, false );
 			polyLine.setNextNewPoint(p.x,p.y);
 		}
 		private void setNextNewPoint(MouseEvent e) {
