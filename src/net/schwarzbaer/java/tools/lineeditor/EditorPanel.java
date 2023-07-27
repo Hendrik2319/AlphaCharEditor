@@ -33,7 +33,6 @@ import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JList;
-import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -47,13 +46,12 @@ import javax.swing.event.ListDataListener;
 
 import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.Disabler;
-import net.schwarzbaer.java.lib.gui.StandardMainWindow;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.alphachareditor.AlphaCharEditor;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.lineeditor.LineForm.FormType;
 
-public class MainWindow extends StandardMainWindow {
+public class EditorPanel extends JPanel {
 	private static final long serialVersionUID = 313126168052969131L;
 	
 	static void Assert(boolean condition) {
@@ -66,12 +64,12 @@ public class MainWindow extends StandardMainWindow {
 	
 	private final AlphaCharEditor alphaCharEditor;
 	private final CharRaster charRaster;
-	private final EditorView editorView;
+	public final EditorView editorView; // TODO: public ?
 	private final GeneralOptionPanel generalOptionPanel;
 	private final EditorViewContextMenu editorViewContextMenu;
 
-	public MainWindow(AlphaCharEditor alphaCharEditor_, String title) {
-		super(title);
+	public EditorPanel(AlphaCharEditor alphaCharEditor_) {
+		super(new BorderLayout(3,3));
 		this.alphaCharEditor = alphaCharEditor_;
 		
 		IconCache iconCache = new IconCache(20,20);
@@ -184,17 +182,11 @@ public class MainWindow extends StandardMainWindow {
 		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
 		editorViewPanel.add(editorView,BorderLayout.CENTER);
 		
-		JPanel contentPane = new JPanel(new BorderLayout(3,3));
-		contentPane.setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
-		contentPane.add(leftPanel,BorderLayout.WEST);
-		contentPane.add(editorViewPanel,BorderLayout.CENTER);
+		setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
+		add(leftPanel,BorderLayout.WEST);
+		add(editorViewPanel,BorderLayout.CENTER);
 		
-		JMenuBar menuBar = alphaCharEditor.createMenuBar();
 		
-		startGUI(contentPane, menuBar);
-		editorView.reset();
-		
-		updateAfterProjectLoad();
 	}
 	
 	private void setSelectedChar(Character ch) {

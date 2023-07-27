@@ -558,7 +558,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			JPanel buttonPanel = new JPanel(new GridBagLayout());
 			buttonPanel.add(createCheckBox("X Fixed", isXFixed, b->{ isXFixed=b; cancelCellEditing(); pointList.repaint(); }));
 			buttonPanel.add(createCheckBox("Y Fixed", isYFixed, b->{ isYFixed=b; cancelCellEditing(); pointList.repaint(); }));
-			buttonPanel.add(btnRemove = MainWindow.createButton("Remove", false, e->removePoint(pointList.getSelectedRow())));
+			buttonPanel.add(btnRemove = EditorPanel.createButton("Remove", false, e->removePoint(pointList.getSelectedRow())));
 			
 			JPanel panel = new JPanel(new BorderLayout(3,3));
 			panel.setBorder(BorderFactory.createTitledBorder("PolyLine Values"));

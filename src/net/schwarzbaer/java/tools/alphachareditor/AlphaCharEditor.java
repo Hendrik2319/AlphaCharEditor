@@ -24,12 +24,13 @@ import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
 import net.schwarzbaer.java.lib.gui.FileChooser;
+import net.schwarzbaer.java.lib.gui.StandardMainWindow;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.system.Settings;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.lineeditor.LineForm;
-import net.schwarzbaer.java.tools.lineeditor.MainWindow;
+import net.schwarzbaer.java.tools.lineeditor.EditorPanel;
 
 public class AlphaCharEditor {
 	
@@ -43,7 +44,7 @@ public class AlphaCharEditor {
 		
 		//testAlphaCharIO();
 		
-		new AlphaCharEditor().createGUI().readLastProject();
+		new AlphaCharEditor().readLastProject();
 	}
 
 	@SuppressWarnings("unused")
@@ -62,9 +63,10 @@ public class AlphaCharEditor {
 		AlphaCharIO.rewriteDefaultAlphaCharFont(file3);
 	}
 
-	MainWindow mainwindow = null;
 	public Project project;
 	final AppSettings settings;
+	private final EditorPanel editorPanel;
+	private final StandardMainWindow mainWindow;
 	private final FileChooser projectFileChooser;
 	private final FileChooser fontFileChooser;
 
@@ -74,6 +76,14 @@ public class AlphaCharEditor {
 		
 		projectFileChooser = new FileChooser("Project-File", "project");
 		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
+		
+		mainWindow = new StandardMainWindow("AlphaChar Editor");
+		editorPanel = new EditorPanel(this);
+		
+		mainWindow.startGUI(editorPanel, createMenuBar());
+		
+		editorPanel.editorView.reset();
+		editorPanel.updateAfterProjectLoad();
 	}
 
 	private void createDefaultProject() {
@@ -82,18 +92,16 @@ public class AlphaCharEditor {
 	}
 	
 	private AlphaCharEditor readLastProject() {
-		Assert(mainwindow!=null);
 		String lastProjectPath = settings.getString(AppSettings.ValueKey.Project, null);
 		if (lastProjectPath!=null) project = Project.readFromFile(new File(lastProjectPath));
-		mainwindow.updateAfterProjectLoad();
+		editorPanel.updateAfterProjectLoad();
 		return this;
 	}
 	
 	void createNewProject() {
-		Assert(mainwindow!=null);
 		createDefaultProject();
 		settings.remove(AppSettings.ValueKey.Project);
-		mainwindow.updateAfterProjectLoad();
+		editorPanel.updateAfterProjectLoad();
 	}
 	
 	void reloadProject() {
@@ -103,10 +111,9 @@ public class AlphaCharEditor {
 
 	void loadProject(File file) {
 		if (file==null) return;
-		Assert(mainwindow!=null);
 		project = Project.readFromFile(file);
 		settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
-		mainwindow.updateAfterProjectLoad();
+		editorPanel.updateAfterProjectLoad();
 	}
 	
 	void saveProjectAs(File file) {
@@ -128,12 +135,6 @@ public class AlphaCharEditor {
 		}
 	}
 	
-
-	private AlphaCharEditor createGUI() {
-		mainwindow = new MainWindow(this,"AlphaChar Editor");
-		return this;
-	}
-	
 	public JMenuBar createMenuBar() {
 		JMenuBar menuBar = new JMenuBar();
 		
@@ -145,9 +146,9 @@ public class AlphaCharEditor {
 		projectMenu.add(createMenuItem("Save Project As ...",e->saveProjectAs(      getProjectFileToSave())));
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
-		fontMenu.add(createMenuItem("Load Default Font",e->{ project.loadDefaultFont();                     mainwindow.updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Reload Font"      ,e->{ project.reloadFont(                         ); mainwindow.updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ project.loadFont  (      getFontFileToOpen()); mainwindow.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ project.loadDefaultFont();                     editorPanel.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Reload Font"      ,e->{ project.reloadFont(                         ); editorPanel.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ project.loadFont  (      getFontFileToOpen()); editorPanel.updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font"        ,e->{ project.saveFont  (this::getFontFileToSave  ); }));
 		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ project.saveFontAs(      getFontFileToSave()); }));
 		
@@ -155,12 +156,12 @@ public class AlphaCharEditor {
 	}
 
 	private File getFileToSave(FileChooser fileChooser) {
-		if (fileChooser.showSaveDialog(mainwindow) != FileChooser.APPROVE_OPTION) return null;
+		if (fileChooser.showSaveDialog(mainWindow) != FileChooser.APPROVE_OPTION) return null;
 		return fileChooser.getSelectedFile();
 	}
 
 	private File getFileToOpen(FileChooser fileChooser) {
-		if (fileChooser.showOpenDialog(mainwindow) != FileChooser.APPROVE_OPTION) return null;
+		if (fileChooser.showOpenDialog(mainWindow) != FileChooser.APPROVE_OPTION) return null;
 		return fileChooser.getSelectedFile();
 	}
 
