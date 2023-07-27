@@ -6,8 +6,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -66,14 +64,6 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			@Override public void keyTyped   (KeyEvent e) { if (formEditing!=null) formEditing.keyTyped   (e); }
 			@Override public void keyReleased(KeyEvent e) { if (formEditing!=null) formEditing.keyReleased(e); }
 			@Override public void keyPressed (KeyEvent e) { if (formEditing!=null) formEditing.keyPressed (e); }
-		});
-		
-		addComponentListener(new ComponentListener()
-		{
-			@Override public void componentShown  (ComponentEvent e) { System.out.printf("componentShown  : %s%n", e); }
-			@Override public void componentResized(ComponentEvent e) { System.out.printf("componentResized: %s%n", e); }
-			@Override public void componentMoved  (ComponentEvent e) { System.out.printf("componentMoved  : %s%n", e); }
-			@Override public void componentHidden (ComponentEvent e) { System.out.printf("componentHidden : %s%n", e); }
 		});
 	}
 
@@ -315,8 +305,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		
 	}
 	
-	
-	public static void drawPoint(Graphics2D g2, int x, int y, boolean highlighted) {
+	static void drawPoint(Graphics2D g2, int x, int y, boolean highlighted) {
 		int radius = 3;
 //		G2.SETCOLOR(COLOR.BLACK);
 //		G2.SETXORMODE(COLOR.WHITE);

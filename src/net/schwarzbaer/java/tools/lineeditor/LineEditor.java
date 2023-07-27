@@ -1,25 +1,14 @@
 package net.schwarzbaer.java.tools.lineeditor;
 
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.BufferedImage;
+import java.io.PrintWriter;
 import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Vector;
@@ -27,8 +16,6 @@ import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
@@ -44,41 +31,33 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListDataListener;
 
-import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.Disabler;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
-import net.schwarzbaer.java.tools.alphachareditor.AlphaCharEditor;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.lineeditor.LineForm.FormType;
 
-public class EditorPanel extends JPanel {
-	private static final long serialVersionUID = 313126168052969131L;
-	
+public class LineEditor
+{
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
 	}
 	
-	private LineForm<?>[] lineforms = null;
-	private Character selectedChar;
-	private JComponent valuePanel;
+	public interface Context
+	{
+		void switchOptionsPanel(JComponent panel);
+		boolean canCreateNewForm();
+		void replaceForms(Form[] forms);
+	}
 	
-	private final AlphaCharEditor alphaCharEditor;
-	private final CharRaster charRaster;
-	public final EditorView editorView; // TODO: public ?
+	private LineForm<?>[] lineforms = null;
+	
+	private final EditorView editorView;
 	private final GeneralOptionPanel generalOptionPanel;
 	private final EditorViewContextMenu editorViewContextMenu;
+	private GuideLinesStorage guideLinesStorage;
 
-	public EditorPanel(AlphaCharEditor alphaCharEditor_) {
-		super(new BorderLayout(3,3));
-		this.alphaCharEditor = alphaCharEditor_;
-		
-		IconCache iconCache = new IconCache(20,20);
-		
-		selectedChar = null;
-		charRaster = new CharRaster(this::setSelectedChar);
-		JPanel charRasterPanel = new JPanel(new BorderLayout(3,3));
-		charRasterPanel.setBorder(BorderFactory.createTitledBorder("Characters"));
-		charRasterPanel.add(charRaster,BorderLayout.CENTER);
+	public LineEditor(Context context) {
+		guideLinesStorage = new GuideLinesStorage();
 		
 		generalOptionPanel = new GeneralOptionPanel(new GeneralOptionPanel.Context() {
 			@Override public void repaintView() { editorView.repaint(); }
@@ -91,17 +70,17 @@ public class EditorPanel extends JPanel {
 			@Override
 			public void addGuideLine(GuideLine guideLine) {
 				if (guideLine==null) return;
-				alphaCharEditor.project.guideLines.add(guideLine);
-				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
-				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
+				guideLinesStorage.guideLines.add(guideLine);
+				editorView        .setGuideLines(guideLinesStorage.guideLines);
+				generalOptionPanel.setGuideLines(guideLinesStorage.guideLines);
 			}
 
 			@Override
 			public void removeGuideLine(int index) {
-				if (index<0 || index>=alphaCharEditor.project.guideLines.size()) return;
-				alphaCharEditor.project.guideLines.remove(index);
-				editorView        .setGuideLines(alphaCharEditor.project.guideLines);
-				generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
+				if (index<0 || index>=guideLinesStorage.guideLines.size()) return;
+				guideLinesStorage.guideLines.remove(index);
+				editorView        .setGuideLines(guideLinesStorage.guideLines);
+				generalOptionPanel.setGuideLines(guideLinesStorage.guideLines);
 			}
 
 			@Override
@@ -132,19 +111,19 @@ public class EditorPanel extends JPanel {
 			private void setNewArray(LineForm<?>[] newArr) {
 				lineforms = newArr;
 				editorView.setForms(lineforms);
-				generalOptionPanel.setForms(lineforms,selectedChar);
-				if (selectedChar!=null) {
-					alphaCharEditor.project.font.put(selectedChar, LineForm.convert(lineforms));
-					charRaster.updateCharList(alphaCharEditor.project.font,selectedChar);
+				generalOptionPanel.setForms(lineforms);
+				if (context.canCreateNewForm()) {
+					context.replaceForms(LineForm.convert(lineforms));
 				}
+			}
+			@Override
+			public boolean canCreateNewForm()
+			{
+				return context.canCreateNewForm();
 			}
 			
 		});
 		generalOptionPanel.setPreferredSize(new Dimension(200, 200));
-		
-		JPanel leftPanel = new JPanel(new BorderLayout(3,3));
-		leftPanel.add(charRasterPanel,BorderLayout.NORTH);
-		leftPanel.add(valuePanel = generalOptionPanel,BorderLayout.CENTER);
 		
 		editorView = new EditorView(new EditorView.Context() {
 			@Override public void updateHighlightedForms(HashSet<LineForm<?>> forms) {
@@ -160,15 +139,7 @@ public class EditorPanel extends JPanel {
 				}
 			}
 			@Override public void setValuePanel(JPanel panel) {
-				if (valuePanel!=null) leftPanel.remove(valuePanel);
-				if (panel!=null)
-					valuePanel = panel;
-				else {
-					valuePanel = generalOptionPanel;
-				}
-				if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
-				leftPanel.revalidate();
-				leftPanel.repaint();
+				context.switchOptionsPanel(panel!=null ? panel : generalOptionPanel);
 			}
 			@Override public void showsContextMenu(int x, int y) {
 				editorViewContextMenu.prepareToShow();
@@ -176,26 +147,22 @@ public class EditorPanel extends JPanel {
 			}
 		});
 		editorView.setPreferredSize(500, 500);
-		editorViewContextMenu = new EditorViewContextMenu(editorView,iconCache);
-		
-		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
-		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
-		editorViewPanel.add(editorView,BorderLayout.CENTER);
-		
-		setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
-		add(leftPanel,BorderLayout.WEST);
-		add(editorViewPanel,BorderLayout.CENTER);
-		
-		
+		editorViewContextMenu = new EditorViewContextMenu(editorView);
 	}
 	
-	private void setSelectedChar(Character ch) {
-		selectedChar=ch;
-		Form[] forms = alphaCharEditor.project.font==null ? null : alphaCharEditor.project.font.get(selectedChar);
-		System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
-		lineforms = LineForm.convert(forms);
-		editorView.setForms(lineforms);
-		generalOptionPanel.setForms(lineforms,selectedChar);
+	public Component getEditorView()
+	{
+		return editorView;
+	}
+
+	public JComponent getInitialOptionsPanel()
+	{
+		return generalOptionPanel;
+	}
+
+	public void init()
+	{
+		editorView.reset();
 	}
 
 	static <A, C extends JComponent> C addToDisabler(Disabler<A> disabler, A disableTag, C component) {
@@ -226,15 +193,64 @@ public class EditorPanel extends JPanel {
 		return comp;
 	}
 
-	public void updateAfterProjectLoad() {
-		editorView        .setGuideLines(alphaCharEditor.project.guideLines);
-		generalOptionPanel.setGuideLines(alphaCharEditor.project.guideLines);
-		updateAfterFontLoad();
+	public void setForms(Form[] forms)
+	{
+		lineforms = LineForm.convert(forms);
+		editorView.setForms(lineforms);
+		generalOptionPanel.setForms(lineforms);
+	}
+	
+	public void setGuideLines(GuideLinesStorage guideLinesStorage)
+	{
+		this.guideLinesStorage = guideLinesStorage;
+		editorView        .setGuideLines(guideLinesStorage.guideLines);
+		generalOptionPanel.setGuideLines(guideLinesStorage.guideLines);
 	}
 
-	public void updateAfterFontLoad() {
-		charRaster.updateCharList(alphaCharEditor.project.font,null);
-		setSelectedChar(null);
+	public static Form.Factory createFormFactory()
+	{
+		return new LineForm.Factory();
+	}
+
+	public static class GuideLinesStorage
+	{
+        private final Vector<GuideLine> guideLines;
+        
+        public GuideLinesStorage()
+        {
+        	guideLines = new Vector<>();        	
+        }
+
+		public void writeToFile(PrintWriter out)
+		{
+			for (GuideLine gl:guideLines)
+				out.printf("GuideLine.%s=%s%n", gl.type.name(), Double.toString(gl.pos));
+		}
+
+		public void parseLine(String line)
+		{
+			for (GuideLine.Type type:GuideLine.Type.values()) {
+				// out.printf("GuideLine.%s=%s%n", gl.type.toString(), Float.toString(gl.pos));
+				String prefix = String.format("GuideLine.%s=", type.name());
+				if (line.startsWith(prefix)) {
+					String str = line.substring(prefix.length());
+					try {
+						double pos = Double.parseDouble(str);
+						guideLines.add(new GuideLine(type, pos));
+					} catch (NumberFormatException e) {
+						System.err.printf("Can't convert \"%s\" in line \"%s\" into a numeric value.", str, line);
+					}
+					break;
+				}
+			}
+		}
+
+		public void setDefaultGuideLines(double[] vertical, double[] horizontal)
+		{
+    		guideLines.clear();
+    		for (double pos : vertical  ) guideLines.add(new GuideLine(GuideLine.Type.Vertical  , pos));
+    		for (double pos : horizontal) guideLines.add(new GuideLine(GuideLine.Type.Horizontal, pos));
+		}
 	}
 
 	private static class GeneralOptionPanel extends JTabbedPane {
@@ -261,8 +277,8 @@ public class EditorPanel extends JPanel {
 			formsPanel.setSelected(selectedIndices);
 		}
 	
-		void setForms(LineForm<?>[] forms, Character selectedChar) {
-			formsPanel.setForms(forms,selectedChar);
+		void setForms(LineForm<?>[] forms) {
+			formsPanel.setForms(forms);
 		}
 
 		private <V extends Number> V showNumberInputDialog(Component parentComp, String message, V initialValue, NumberParser<V> parser) {
@@ -310,7 +326,7 @@ public class EditorPanel extends JPanel {
 			void changeHighlightedGuideLine(GuideLine guideLine);
 			void repaintView();
 			Rectangle2D.Float getViewRectangle();
-			
+			boolean canCreateNewForm();
 		}
 	
 		enum FormsPanelButtons { New,Edit,Remove,Copy,Paste,Mirror,Translate }
@@ -320,7 +336,6 @@ public class EditorPanel extends JPanel {
 			private final JList<LineForm<?>> formList;
 			private final Vector<LineForm<?>> localClipboard;
 			private Disabler<FormsPanelButtons> disabler;
-			private Character selectedChar;
 			
 			FormsPanel() {
 				super(new BorderLayout(3,3));
@@ -408,7 +423,7 @@ public class EditorPanel extends JPanel {
 			private void setButtonsEnabled(int selection) {
 				disabler.setEnable(button->{
 					switch (button) {
-					case New: return selectedChar!=null;
+					case New: return context.canCreateNewForm();
 					case Edit: return selection==1;
 					case Copy:
 					case Remove:
@@ -432,10 +447,9 @@ public class EditorPanel extends JPanel {
 				setButtonsEnabled(selectedIndices==null ? 0 : selectedIndices.length);
 			}
 	
-			void setForms(LineForm<?>[] forms, Character selectedChar) {
-				this.selectedChar = selectedChar;
+			void setForms(LineForm<?>[] forms) {
 				formList.setModel(new FormListModel(forms));
-				disabler.setEnable(FormsPanelButtons.New, this.selectedChar!=null);
+				disabler.setEnable(FormsPanelButtons.New, context.canCreateNewForm());
 			}
 	
 			private final class FormListModel implements ListModel<LineForm<?>> {
@@ -556,15 +570,13 @@ public class EditorPanel extends JPanel {
 		private final JCheckBoxMenuItem miStickToFormPoints;
 		private final JCheckBoxMenuItem miShowThickLines;
 		private EditorView editorView;
-		//private IconCache iconCache;
 
-		public EditorViewContextMenu(EditorView editorView, IconCache iconCache) {
+		public EditorViewContextMenu(EditorView editorView) {
 			this.editorView = editorView;
-			//this.iconCache = iconCache;
-			add(miStickToGuideLines = createCheckBoxMI("Stick to GuideLines" , IconCache.EditorViewButtons.StickToGuideLiones, editorView.isStickToGuideLines(), editorView::setStickToGuideLines));
-			add(miStickToFormPoints = createCheckBoxMI("Stick to Form Points", IconCache.EditorViewButtons.StickToFormPoints , editorView.isStickToFormPoints(), editorView::setStickToFormPoints));
+			add(miStickToGuideLines = createCheckBoxMI("Stick to GuideLines" , editorView.isStickToGuideLines(), editorView::setStickToGuideLines));
+			add(miStickToFormPoints = createCheckBoxMI("Stick to Form Points", editorView.isStickToFormPoints(), editorView::setStickToFormPoints));
 			addSeparator();
-			add(miShowThickLines    = createCheckBoxMI("Show Thick Lines"    , IconCache.EditorViewButtons.ThickLines        , editorView.isShowThickLines   (), editorView::setShowThickLines   ));
+			add(miShowThickLines    = createCheckBoxMI("Show Thick Lines"    , editorView.isShowThickLines   (), editorView::setShowThickLines   ));
 			add(createMenuItem("Set line width ...", e->{
 				float width = editorView.getThickLinesWidth();
 				String result = JOptionPane.showInputDialog(editorView, "Set width of thick lines:", width);
@@ -578,8 +590,8 @@ public class EditorPanel extends JPanel {
 			}));
 		}
 		
-		private JCheckBoxMenuItem createCheckBoxMI(String title, IconCache.EditorViewButtons key, boolean isSelected, Consumer<Boolean> setValue) {
-			JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, /*iconCache.getIcon(key),*/ isSelected);
+		private JCheckBoxMenuItem createCheckBoxMI(String title, boolean isSelected, Consumer<Boolean> setValue) {
+			JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, isSelected);
 			if (setValue!=null) comp.addActionListener(e->setValue.accept(comp.isSelected()));
 			return comp;
 		}
@@ -588,277 +600,6 @@ public class EditorPanel extends JPanel {
 			miStickToGuideLines.setSelected(editorView.isStickToGuideLines());
 			miStickToFormPoints.setSelected(editorView.isStickToFormPoints());
 			miShowThickLines   .setSelected(editorView.isShowThickLines   ());
-		}
-		
-	}
-
-	private static class IconCache {
-		enum EditorViewButtons { ThickLines, StickToGuideLiones, StickToFormPoints }
-		
-		private EnumMap<EditorViewButtons, Icon> editorViewButtons;
-		private int width;
-		private int height;
-		
-		IconCache(int width, int height) {
-			this.width = width;
-			this.height = height;
-			editorViewButtons = new EnumMap<>(EditorViewButtons.class);
-			for (EditorViewButtons key:EditorViewButtons.values())
-				editorViewButtons.put(key, createIcon(key));
-		}
-		
-		@SuppressWarnings("unused")
-		Icon getIcon(EditorViewButtons key) {
-			return editorViewButtons.get(key);
-		}
-		
-		private Icon createIcon(EditorViewButtons key) {
-			BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-			Graphics2D g2 = image.createGraphics();
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			switch (key) {
-			
-			case StickToFormPoints:
-				// TODO
-				break;
-				
-			case StickToGuideLiones:
-				// TODO
-				break;
-				
-			case ThickLines:
-				g2.setStroke(new BasicStroke(width*0.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-				g2.setColor(Color.BLUE.brighter());
-				g2.drawLine(width/2, height/2, width/2, height+height/2);
-				g2.setStroke(new BasicStroke(1, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-				g2.setColor(Color.BLACK);
-				g2.drawLine(width/2, height/2, width/2, height+height/2);
-				break;
-			}
-			return new ImageIcon(image);
-		}
-		
-	}
-
-	private static class CharRaster extends Canvas {
-		private static final Color COLOR_TEXT           = Color.BLACK;
-		private static final Color COLOR_TEXT_NOTEXISTS = Color.LIGHT_GRAY;
-		private static final Color COLOR_BACKGROUND     = Color.WHITE;
-		private static final Color COLOR_CHAR_EXISTS      = new Color(0xf0f0f0);
-		private static final Color COLOR_CHAR_HIGHLIGHTED = Color.CYAN;
-		private static final Color COLOR_CHAR_SELECTED    = Color.GREEN;
-
-		private static final long serialVersionUID = 6444819062135187504L;
-		
-		private final char[][] chars;
-		private final boolean[][] charExist;
-		private final int fieldWidth;
-		private final int fieldHeight;
-		private final int offsetX;
-		private final int offsetY;
-		private final int border;
-
-		private Rectangle view = null;
-		private Point highlightedField = null;
-		private Point selectedField = null;
-		private Character selectedChar = null;
-		private int[] rows;
-		private SelectionListener listener;
-
-		CharRaster(SelectionListener listener) {
-			this.listener = listener;
-			Assert(this.listener!=null);
-			this.fieldWidth  = 20;
-			this.fieldHeight = 18;
-			this.offsetX =  7;
-			this.offsetY = 13;
-			this.border = 3;
-			chars = new char[][] {
-				createCharArray('A','Z'),
-				createCharArray('a','z'),
-				createCharArray('0','9'),
-				new char[] { 'ä','ö','ü', 'Ä','Ö','Ü', 'ß' }
-			};
-			
-			rows = new int[chars.length];
-			Arrays.fill(rows,0);
-			
-			charExist = new boolean[chars.length][];
-			for (int i=0; i<charExist.length; i++) {
-				charExist[i] = new boolean[chars[i].length];
-				Arrays.fill(charExist[i],false);
-			}
-			
-			MouseAdapter m = new MouseAdapter() {
-				@Override public void mouseClicked(MouseEvent e) { setSelectedField   (e.getPoint()); }
-				@Override public void mouseEntered(MouseEvent e) { setHighlightedField(e.getPoint()); }
-				@Override public void mouseMoved  (MouseEvent e) { setHighlightedField(e.getPoint()); }
-				@Override public void mouseExited (MouseEvent e) { setHighlightedField(null); }
-			};
-			addMouseListener(m);
-			addMouseMotionListener(m);
-			
-			setPreferredSize(2*border + 10*fieldWidth, 2*border +  8*fieldHeight);
-		}
-
-		private char[] createCharArray(char first, char last) {
-			char[] chars = new char[last-first+1];
-			for (int i=0; i<chars.length; ++i) chars[i] = (char) (first+i);
-			return chars;
-		}
-
-		public void updateCharList(HashMap<Character, Form[]> font, Character selectedChar) {
-			for (int b=0; b<charExist.length; b++) {
-				for (int ch=0; ch<charExist[b].length; ch++) {
-					Form[] forms = font==null ? null : font.get(chars[b][ch]);
-					charExist[b][ch] = forms!=null && forms.length>0;
-				}
-			}
-			this.highlightedField = null;
-			this.selectedField = getField(selectedChar);
-			this.selectedChar = selectedChar;
-			//System.out.printf("SelectedChar: %s (%s)%n", this.selectedChar, this.selectedField);
-			repaint();
-		}
-
-		interface SelectionListener {
-			void selectedCharChanged(Character selectedChar);
-		}
-		
-		private void setSelectedField(Point p) {
-			Point field = getField(p);
-			boolean repaint = false;
-//			if (field==null) {
-//				repaint = selectedField!=null;
-//				selectedField=null;
-//			} else if (selectedField==null || !selectedField.equals(field)) {
-//				repaint = true;
-//				selectedField = field; 
-//			}
-			repaint = true;
-			selectedField = field; 
-			updateSelectedChar();
-			if (repaint) repaint();
-		}
-		
-		private void setHighlightedField(Point p) {
-			Point field = getField(p);
-			boolean repaint = false;
-//			if (field==null) {
-//				repaint = highlightedField!=null;
-//				highlightedField=null;
-//			} else if (highlightedField==null || !highlightedField.equals(field)) {
-//				repaint = true;
-//				highlightedField = field; 
-//			}
-			repaint = true;
-			highlightedField = field; 
-			if (repaint) repaint();
-		}
-
-		private Point getField(Character ch) {
-			if (ch==null || view==null) return null;
-			int block = -1;
-			int index = -1;
-			for (int b=0; b<chars.length; b++) {
-				for (int i=0; i<chars[b].length; i++) {
-					if (chars[b][i]==ch) {
-						block = b;
-						index = i;
-						break;
-					}
-				}
-				if (block>=0) break;
-			}
-			
-//			// from <getCharAt>
-//			int y = field.y-rows[block];
-//			int x = field.x;
-			int iWidth = view.width/fieldWidth;
-//			int i = x + iWidth*y;
-			
-			int x =  index % iWidth;
-			int y = (index / iWidth)+rows[block];
-			return new Point(x, y);
-		}
-
-		private Point getField(Point p) {
-			if (p==null || view==null) return null;
-			int x = p.x-view.x;
-			int y = p.y-view.y;
-			if (x<0 || x>=view.width ) return null;
-			if (y<0 || y>=view.height) return null;
-			int ix = x/fieldWidth;
-			int iy = y/fieldHeight;
-			return new Point(ix, iy); 
-		}
-
-		private Character getCharAt(Point field) {
-			if (field==null || view==null) return null;
-			int block = -1;
-			for (int b=0; b<rows.length; b++) {
-				if (field.y>=rows[b] && (b+1>=rows.length || field.y<rows[b+1])) {
-					block  = b;
-					break;
-				}
-			}
-			if (block>=0) {
-				int y = field.y-rows[block];
-				int x = field.x;
-				int iWidth = view.width/fieldWidth;
-				int i = x + iWidth*y;
-				if (i<chars[block].length) {
-					return chars[block][i];
-				}
-			}
-			return null;
-		}
-
-		private void updateSelectedChar() {
-			Character ch = getCharAt(selectedField);
-			if (ch!=null && selectedChar != null && selectedChar.equals(ch)) return;
-			if (ch==null && selectedChar == null) return; 
-			selectedChar = ch;
-			listener.selectedCharChanged(selectedChar);
-		}
-
-		@Override
-		protected void paintCanvas(Graphics g, int x, int y, int width, int height) {
-			if (view==null) view = new Rectangle(x, y, width, height);
-			else view.setBounds(x, y, width, height);
-			g.setColor(COLOR_BACKGROUND);
-			g.fillRect(x, y, width, height);
-			
-			if (g instanceof Graphics2D) {
-				Graphics2D g2 = (Graphics2D) g;
-				g2.setClip(x, y, width, height);
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				
-				int iy = 0;
-				for (int b=0; b<chars.length; b++) {
-					int ix = 0;
-					rows[b] = iy;
-					for (int i=0; i<chars[b].length; i++) {
-						if ((ix+1)*fieldWidth>width-2*border) { ++iy; ix=0; }
-						char ch = chars[b][i];
-						boolean exist = charExist[b][i];
-						Color color;
-						if (selectedField!=null && selectedField.x==ix && selectedField.y==iy)
-							color = COLOR_CHAR_SELECTED;
-						else if (highlightedField!=null && highlightedField.x==ix && highlightedField.y==iy)
-							color = COLOR_CHAR_HIGHLIGHTED;
-						else
-							color = exist ? COLOR_CHAR_EXISTS : COLOR_BACKGROUND;
-						g2.setPaint(color);
-						g2.fillRect(border+ix*fieldWidth+1, border+iy*fieldHeight+1, fieldWidth-2, fieldHeight-2);
-						g2.setPaint(exist ? COLOR_TEXT : COLOR_TEXT_NOTEXISTS);
-						g2.drawString(Character.toString(ch), border+ix*fieldWidth+offsetX, border+iy*fieldHeight+offsetY);
-						++ix;
-					}
-					++iy;
-				}
-				
-			}
 		}
 		
 	}

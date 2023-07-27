@@ -1,8 +1,15 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
-import java.awt.Dimension;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,24 +20,27 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Vector;
 import java.util.function.Supplier;
 
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JPanel;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
+import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.gui.StandardMainWindow;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
-import net.schwarzbaer.java.lib.system.Settings;
-import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
-import net.schwarzbaer.java.tools.lineeditor.LineForm;
-import net.schwarzbaer.java.tools.lineeditor.EditorPanel;
+import net.schwarzbaer.java.lib.system.Settings.DefaultAppSettings;
+import net.schwarzbaer.java.tools.lineeditor.LineEditor;
+import net.schwarzbaer.java.tools.lineeditor.LineEditor.GuideLinesStorage;
 
 public class AlphaCharEditor {
 	
@@ -63,45 +73,91 @@ public class AlphaCharEditor {
 		AlphaCharIO.rewriteDefaultAlphaCharFont(file3);
 	}
 
-	public Project project;
-	final AppSettings settings;
-	private final EditorPanel editorPanel;
+	private final static AppSettings settings = new AppSettings();
+	private final LineEditor lineEditor;
 	private final StandardMainWindow mainWindow;
 	private final FileChooser projectFileChooser;
 	private final FileChooser fontFileChooser;
+	private final JPanel leftPanel;
+	private final CharRaster charRaster;
+	
+	private Project project;
+	private JComponent valuePanel;
+	private Character selectedChar;
 
 	private AlphaCharEditor() {
-		settings = new AppSettings();
-		createDefaultProject();
+		project = Project.createDefaultProject();
 		
 		projectFileChooser = new FileChooser("Project-File", "project");
 		fontFileChooser = new FileChooser("Font-File", AlphaCharIO.ALPHACHARFONT_EXTENSION);
 		
 		mainWindow = new StandardMainWindow("AlphaChar Editor");
-		editorPanel = new EditorPanel(this);
+		leftPanel = new JPanel(new BorderLayout(3,3));
 		
-		mainWindow.startGUI(editorPanel, createMenuBar());
+		lineEditor = new LineEditor(new LineEditor.Context() {
+			@Override public void switchOptionsPanel(JComponent panel)
+			{
+				if (valuePanel!=null) leftPanel.remove(valuePanel);
+				valuePanel = panel;
+				if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
+				leftPanel.revalidate();
+				leftPanel.repaint();
+			}
+			@Override public boolean canCreateNewForm()
+			{
+				return selectedChar!=null;
+			}
+			@Override public void replaceForms(Form[] forms)
+			{
+				project.font.put(selectedChar, forms);
+				charRaster.updateCharList(project.font,selectedChar);
+			}
+		});
+		valuePanel = lineEditor.getInitialOptionsPanel();
 		
-		editorPanel.editorView.reset();
-		editorPanel.updateAfterProjectLoad();
+		selectedChar = null;
+		charRaster = new CharRaster(this::setSelectedChar);
+		JPanel charRasterPanel = new JPanel(new BorderLayout(3,3));
+		charRasterPanel.setBorder(BorderFactory.createTitledBorder("Characters"));
+		charRasterPanel.add(charRaster,BorderLayout.CENTER);
+		
+		leftPanel.add(charRasterPanel,BorderLayout.NORTH);
+		leftPanel.add(valuePanel,BorderLayout.CENTER);
+		
+		JPanel editorViewPanel = new JPanel(new BorderLayout(3,3));
+		editorViewPanel.setBorder(BorderFactory.createTitledBorder("Geometry"));
+		editorViewPanel.add(lineEditor.getEditorView(),BorderLayout.CENTER);
+		
+		JPanel contentPane = new JPanel(new BorderLayout(3,3));
+		contentPane.setBorder(BorderFactory.createEmptyBorder(3,3,3,3));
+		contentPane.add(leftPanel,BorderLayout.WEST);
+		contentPane.add(editorViewPanel,BorderLayout.CENTER);
+		
+		mainWindow.startGUI(contentPane, createMenuBar());
+		settings.registerAppWindow(mainWindow);
+		
+		lineEditor.init();
+		updateAfterProjectLoad();
 	}
 
-	private void createDefaultProject() {
-		project = new Project(null);
-		project.createDefaultGuideLines();
+	private void setSelectedChar(Character ch) {
+		selectedChar=ch;
+		Form[] forms = project.font==null ? null : project.font.get(selectedChar);
+		System.out.printf("SelectedChar: %s %s%n", selectedChar==null ? "none" : "'"+selectedChar+"'", forms==null ? "--" : "["+forms.length+"]");
+		lineEditor.setForms(forms);
 	}
-	
+
 	private AlphaCharEditor readLastProject() {
-		String lastProjectPath = settings.getString(AppSettings.ValueKey.Project, null);
-		if (lastProjectPath!=null) project = Project.readFromFile(new File(lastProjectPath));
-		editorPanel.updateAfterProjectLoad();
+		File lastProjectFile = settings.getFile(AppSettings.ValueKey.Project, null);
+		if (lastProjectFile!=null) project = Project.readFromFile(lastProjectFile);
+		updateAfterProjectLoad();
 		return this;
 	}
 	
 	void createNewProject() {
-		createDefaultProject();
+		project = Project.createDefaultProject();
 		settings.remove(AppSettings.ValueKey.Project);
-		editorPanel.updateAfterProjectLoad();
+		updateAfterProjectLoad();
 	}
 	
 	void reloadProject() {
@@ -112,14 +168,14 @@ public class AlphaCharEditor {
 	void loadProject(File file) {
 		if (file==null) return;
 		project = Project.readFromFile(file);
-		settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
-		editorPanel.updateAfterProjectLoad();
+		settings.putFile(AppSettings.ValueKey.Project, file);
+		updateAfterProjectLoad();
 	}
 	
 	void saveProjectAs(File file) {
 		if (file==null) return;
 		project.writeToFile(file);
-		settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
+		settings.putFile(AppSettings.ValueKey.Project, file);
 	}
 	
 	void saveProject(Supplier<File> getFile) {
@@ -130,12 +186,12 @@ public class AlphaCharEditor {
 			File file = getFile.get();
 			if (file!=null) {
 				project.writeToFile(file);
-				settings.putString(AppSettings.ValueKey.Project, file.getAbsolutePath());
+				settings.putFile(AppSettings.ValueKey.Project, file);
 			}
 		}
 	}
 	
-	public JMenuBar createMenuBar() {
+	private JMenuBar createMenuBar() {
 		JMenuBar menuBar = new JMenuBar();
 		
 		JMenu projectMenu = menuBar.add(new JMenu("Project"));
@@ -146,13 +202,23 @@ public class AlphaCharEditor {
 		projectMenu.add(createMenuItem("Save Project As ...",e->saveProjectAs(      getProjectFileToSave())));
 		
 		JMenu fontMenu = menuBar.add(new JMenu("Font"));
-		fontMenu.add(createMenuItem("Load Default Font",e->{ project.loadDefaultFont();                     editorPanel.updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Reload Font"      ,e->{ project.reloadFont(                         ); editorPanel.updateAfterFontLoad(); }));
-		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ project.loadFont  (      getFontFileToOpen()); editorPanel.updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Default Font",e->{ project.loadDefaultFont();                     updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Reload Font"      ,e->{ project.reloadFont(                         ); updateAfterFontLoad(); }));
+		fontMenu.add(createMenuItem("Load Font ..."    ,e->{ project.loadFont  (      getFontFileToOpen()); updateAfterFontLoad(); }));
 		fontMenu.add(createMenuItem("Save Font"        ,e->{ project.saveFont  (this::getFontFileToSave  ); }));
 		fontMenu.add(createMenuItem("Save Font As ..." ,e->{ project.saveFontAs(      getFontFileToSave()); }));
 		
 		return menuBar;
+	}
+
+	private void updateAfterProjectLoad() {
+		lineEditor.setGuideLines(project.guideLinesStorage);
+		updateAfterFontLoad();
+	}
+
+	private void updateAfterFontLoad() {
+		charRaster.updateCharList(project.font,null);
+		setSelectedChar(null);
 	}
 
 	private File getFileToSave(FileChooser fileChooser) {
@@ -176,62 +242,39 @@ public class AlphaCharEditor {
 		return comp;
 	}
 
-	static class AppSettings extends Settings<AppSettings.ValueGroup,AppSettings.ValueKey> {
+	private static class AppSettings extends DefaultAppSettings<AppSettings.ValueGroup,AppSettings.ValueKey> {
 		
-		enum ValueGroup implements Settings.GroupKeys<ValueKey> {
-			WindowPos (ValueKey.WindowX, ValueKey.WindowY),
-			WindowSize(ValueKey.WindowWidth, ValueKey.WindowHeight);
+		enum ValueGroup implements DefaultAppSettings.GroupKeys<ValueKey> {
+			;
 			ValueKey[] keys;
 			ValueGroup(ValueKey...keys) { this.keys = keys;}
 			@Override public ValueKey[] getKeys() { return keys; }
 		}
 		
 		enum ValueKey {
-			WindowX, WindowY, WindowWidth, WindowHeight,
 			Project
 		}
 
-		public AppSettings() { super(AlphaCharEditor.class); }
-
-		public Point getWindowPos() {
-			int x = getInt(ValueKey.WindowX);
-			int y = getInt(ValueKey.WindowY);
-			return new Point(x,y);
-		}
-		public void setWindowPos(Point location) {
-			putInt(ValueKey.WindowX, location.x);
-			putInt(ValueKey.WindowY, location.y);
-		}
-
-		public Dimension getWindowSize() {
-			int w = getInt(ValueKey.WindowWidth );
-			int h = getInt(ValueKey.WindowHeight);
-			return new Dimension(w,h);
-		}
-		public void setWindowSize(Dimension size) {
-			putInt(ValueKey.WindowWidth , size.width );
-			putInt(ValueKey.WindowHeight, size.height);
-		}
+		AppSettings() { super(AlphaCharEditor.class, ValueKey.values()); }
 	}
 	
-	public static class Project {
+	private static class Project {
 		private File projectFile;
-        public Vector<GuideLine> guideLines = new Vector<>();;
-    	public HashMap<Character, Form[]> font = null;
+		private final GuideLinesStorage guideLinesStorage = new GuideLinesStorage();
+		private HashMap<Character, Form[]> font = null;
     	private File fontFile = null;
 		private boolean fontIsDefault = false;
     	
-    	public Project(File projectFile) {
+    	Project(File projectFile) {
 			this.projectFile = projectFile;
 		}
-
-		private void createDefaultGuideLines() {
-    		guideLines.clear();
-    		guideLines.add(new GuideLine(GuideLine.Type.Vertical,0));
-    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,0));
-    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,40));
-    		guideLines.add(new GuideLine(GuideLine.Type.Horizontal,100));
-		}
+    	
+    	static Project createDefaultProject()
+    	{
+    		Project project = new Project(null);
+    		project.guideLinesStorage.setDefaultGuideLines(new double[]{ 0 }, new double[]{ 0,40,100 });
+    		return project;
+    	}
 
 		void writeToFile(File file) {
 			Assert(file!=null);
@@ -246,8 +289,7 @@ public class AlphaCharEditor {
     			if (fontFile!=null && !fontIsDefault)
     				out.printf("Font=%s%n", fontFile.getAbsolutePath());
     			
-    			for (GuideLine gl:guideLines)
-					out.printf("GuideLine.%s=%s%n", gl.type.name(), Double.toString(gl.pos));
+    			guideLinesStorage.writeToFile(out);
     			
     		} catch (FileNotFoundException e) {
 				e.printStackTrace();
@@ -273,20 +315,7 @@ public class AlphaCharEditor {
 						project.fontFile = new File(str);
 					}
 					
-					for (GuideLine.Type type:GuideLine.Type.values()) {
-						// out.printf("GuideLine.%s=%s%n", gl.type.toString(), Float.toString(gl.pos));
-						String prefix = String.format("GuideLine.%s=", type.name());
-						if (line.startsWith(prefix)) {
-							String str = line.substring(prefix.length());
-							try {
-								double pos = Double.parseDouble(str);
-								project.guideLines.add(new GuideLine(type, pos));
-							} catch (NumberFormatException e) {
-								System.err.printf("Can't convert \"%s\" in line \"%s\" into a numeric value.", str, line);
-							}
-							break;
-						}
-					}
+					project.guideLinesStorage.parseLine(line);
 					
 				}
 				
@@ -302,7 +331,7 @@ public class AlphaCharEditor {
     	}
 
     	void loadDefaultFont() {
-    		this.font = AlphaCharIO.readDefaultAlphaCharFont(new LineForm.Factory(), true);
+    		this.font = AlphaCharIO.readDefaultAlphaCharFont(LineEditor.createFormFactory(), true);
     		this.fontFile = null;
     		this.fontIsDefault = true;
     	}
@@ -316,7 +345,7 @@ public class AlphaCharEditor {
 
 		void loadFont(File fontFile) {
 			if (fontFile==null) return;
-			this.font = AlphaCharIO.readAlphaCharFontFromFile(fontFile, new LineForm.Factory(), true);
+			this.font = AlphaCharIO.readAlphaCharFontFromFile(fontFile, LineEditor.createFormFactory(), true);
     		this.fontFile = fontFile;
     		this.fontIsDefault = false;
     	}
@@ -333,5 +362,228 @@ public class AlphaCharEditor {
     		this.fontFile = fontFile;
     		this.fontIsDefault = false;
 		}
+	}
+
+	private static class CharRaster extends Canvas {
+		private static final Color COLOR_TEXT           = Color.BLACK;
+		private static final Color COLOR_TEXT_NOTEXISTS = Color.LIGHT_GRAY;
+		private static final Color COLOR_BACKGROUND     = Color.WHITE;
+		private static final Color COLOR_CHAR_EXISTS      = new Color(0xf0f0f0);
+		private static final Color COLOR_CHAR_HIGHLIGHTED = Color.CYAN;
+		private static final Color COLOR_CHAR_SELECTED    = Color.GREEN;
+
+		private static final long serialVersionUID = 6444819062135187504L;
+		
+		private final char[][] chars;
+		private final boolean[][] charExist;
+		private final int fieldWidth;
+		private final int fieldHeight;
+		private final int offsetX;
+		private final int offsetY;
+		private final int border;
+
+		private Rectangle view = null;
+		private Point highlightedField = null;
+		private Point selectedField = null;
+		private Character selectedChar = null;
+		private int[] rows;
+		private SelectionListener listener;
+
+		CharRaster(SelectionListener listener) {
+			this.listener = listener;
+			Assert(this.listener!=null);
+			this.fieldWidth  = 20;
+			this.fieldHeight = 18;
+			this.offsetX =  7;
+			this.offsetY = 13;
+			this.border = 3;
+			chars = new char[][] {
+				createCharArray('A','Z'),
+				createCharArray('a','z'),
+				createCharArray('0','9'),
+				new char[] { 'ä','ö','ü', 'Ä','Ö','Ü', 'ß' }
+			};
+			
+			rows = new int[chars.length];
+			Arrays.fill(rows,0);
+			
+			charExist = new boolean[chars.length][];
+			for (int i=0; i<charExist.length; i++) {
+				charExist[i] = new boolean[chars[i].length];
+				Arrays.fill(charExist[i],false);
+			}
+			
+			MouseAdapter m = new MouseAdapter() {
+				@Override public void mouseClicked(MouseEvent e) { setSelectedField   (e.getPoint()); }
+				@Override public void mouseEntered(MouseEvent e) { setHighlightedField(e.getPoint()); }
+				@Override public void mouseMoved  (MouseEvent e) { setHighlightedField(e.getPoint()); }
+				@Override public void mouseExited (MouseEvent e) { setHighlightedField(null); }
+			};
+			addMouseListener(m);
+			addMouseMotionListener(m);
+			
+			setPreferredSize(2*border + 10*fieldWidth, 2*border +  8*fieldHeight);
+		}
+
+		private char[] createCharArray(char first, char last) {
+			char[] chars = new char[last-first+1];
+			for (int i=0; i<chars.length; ++i) chars[i] = (char) (first+i);
+			return chars;
+		}
+
+		void updateCharList(HashMap<Character, Form[]> font, Character selectedChar) {
+			for (int b=0; b<charExist.length; b++) {
+				for (int ch=0; ch<charExist[b].length; ch++) {
+					Form[] forms = font==null ? null : font.get(chars[b][ch]);
+					charExist[b][ch] = forms!=null && forms.length>0;
+				}
+			}
+			this.highlightedField = null;
+			this.selectedField = getField(selectedChar);
+			this.selectedChar = selectedChar;
+			//System.out.printf("SelectedChar: %s (%s)%n", this.selectedChar, this.selectedField);
+			repaint();
+		}
+
+		interface SelectionListener {
+			void selectedCharChanged(Character selectedChar);
+		}
+		
+		private void setSelectedField(Point p) {
+			Point field = getField(p);
+			boolean repaint = false;
+//			if (field==null) {
+//				repaint = selectedField!=null;
+//				selectedField=null;
+//			} else if (selectedField==null || !selectedField.equals(field)) {
+//				repaint = true;
+//				selectedField = field; 
+//			}
+			repaint = true;
+			selectedField = field; 
+			updateSelectedChar();
+			if (repaint) repaint();
+		}
+		
+		private void setHighlightedField(Point p) {
+			Point field = getField(p);
+			boolean repaint = false;
+//			if (field==null) {
+//				repaint = highlightedField!=null;
+//				highlightedField=null;
+//			} else if (highlightedField==null || !highlightedField.equals(field)) {
+//				repaint = true;
+//				highlightedField = field; 
+//			}
+			repaint = true;
+			highlightedField = field; 
+			if (repaint) repaint();
+		}
+
+		private Point getField(Character ch) {
+			if (ch==null || view==null) return null;
+			int block = -1;
+			int index = -1;
+			for (int b=0; b<chars.length; b++) {
+				for (int i=0; i<chars[b].length; i++) {
+					if (chars[b][i]==ch) {
+						block = b;
+						index = i;
+						break;
+					}
+				}
+				if (block>=0) break;
+			}
+			
+//			// from <getCharAt>
+//			int y = field.y-rows[block];
+//			int x = field.x;
+			int iWidth = view.width/fieldWidth;
+//			int i = x + iWidth*y;
+			
+			int x =  index % iWidth;
+			int y = (index / iWidth)+rows[block];
+			return new Point(x, y);
+		}
+
+		private Point getField(Point p) {
+			if (p==null || view==null) return null;
+			int x = p.x-view.x;
+			int y = p.y-view.y;
+			if (x<0 || x>=view.width ) return null;
+			if (y<0 || y>=view.height) return null;
+			int ix = x/fieldWidth;
+			int iy = y/fieldHeight;
+			return new Point(ix, iy); 
+		}
+
+		private Character getCharAt(Point field) {
+			if (field==null || view==null) return null;
+			int block = -1;
+			for (int b=0; b<rows.length; b++) {
+				if (field.y>=rows[b] && (b+1>=rows.length || field.y<rows[b+1])) {
+					block  = b;
+					break;
+				}
+			}
+			if (block>=0) {
+				int y = field.y-rows[block];
+				int x = field.x;
+				int iWidth = view.width/fieldWidth;
+				int i = x + iWidth*y;
+				if (i<chars[block].length) {
+					return chars[block][i];
+				}
+			}
+			return null;
+		}
+
+		private void updateSelectedChar() {
+			Character ch = getCharAt(selectedField);
+			if (ch!=null && selectedChar != null && selectedChar.equals(ch)) return;
+			if (ch==null && selectedChar == null) return; 
+			selectedChar = ch;
+			listener.selectedCharChanged(selectedChar);
+		}
+
+		@Override
+		protected void paintCanvas(Graphics g, int x, int y, int width, int height) {
+			if (view==null) view = new Rectangle(x, y, width, height);
+			else view.setBounds(x, y, width, height);
+			g.setColor(COLOR_BACKGROUND);
+			g.fillRect(x, y, width, height);
+			
+			if (g instanceof Graphics2D) {
+				Graphics2D g2 = (Graphics2D) g;
+				g2.setClip(x, y, width, height);
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				
+				int iy = 0;
+				for (int b=0; b<chars.length; b++) {
+					int ix = 0;
+					rows[b] = iy;
+					for (int i=0; i<chars[b].length; i++) {
+						if ((ix+1)*fieldWidth>width-2*border) { ++iy; ix=0; }
+						char ch = chars[b][i];
+						boolean exist = charExist[b][i];
+						Color color;
+						if (selectedField!=null && selectedField.x==ix && selectedField.y==iy)
+							color = COLOR_CHAR_SELECTED;
+						else if (highlightedField!=null && highlightedField.x==ix && highlightedField.y==iy)
+							color = COLOR_CHAR_HIGHLIGHTED;
+						else
+							color = exist ? COLOR_CHAR_EXISTS : COLOR_BACKGROUND;
+						g2.setPaint(color);
+						g2.fillRect(border+ix*fieldWidth+1, border+iy*fieldHeight+1, fieldWidth-2, fieldHeight-2);
+						g2.setPaint(exist ? COLOR_TEXT : COLOR_TEXT_NOTEXISTS);
+						g2.drawString(Character.toString(ch), border+ix*fieldWidth+offsetX, border+iy*fieldHeight+offsetY);
+						++ix;
+					}
+					++iy;
+				}
+				
+			}
+		}
+		
 	}
 }

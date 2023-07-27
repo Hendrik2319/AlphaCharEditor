@@ -12,7 +12,7 @@ import java.util.function.BiConsumer;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 
-public interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
+interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
 
 	static void Assert(boolean condition) {
 		if (!condition) throw new IllegalStateException();
