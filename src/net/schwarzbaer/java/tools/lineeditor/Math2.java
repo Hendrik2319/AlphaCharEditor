@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import net.schwarzbaer.java.lib.image.bumpmapping.BumpMapping;
 

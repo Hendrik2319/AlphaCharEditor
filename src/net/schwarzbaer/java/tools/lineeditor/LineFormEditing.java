@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -37,13 +37,13 @@ import javax.swing.table.TableCellEditor;
 import net.schwarzbaer.java.lib.gui.Tables;
 import net.schwarzbaer.java.lib.gui.Tables.SimplifiedColumnConfig;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
-import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint.Type;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.Line.LinePoint;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.PolyLine;
+import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.Arc;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.Line;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.PolyLine;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.Arc.ArcPoint;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.Arc.ArcPoint.Type;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.Line.LinePoint;
 
 abstract class LineFormEditing<HighlightedPointType> {
 

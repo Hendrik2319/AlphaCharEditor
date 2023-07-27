@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -20,7 +20,7 @@ import java.util.function.BiConsumer;
 import javax.swing.JPanel;
 
 import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
-import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine.Type;
+import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine.Type;
 
 class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	

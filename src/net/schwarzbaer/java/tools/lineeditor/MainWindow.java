@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -53,8 +53,8 @@ import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.gui.StandardMainWindow;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
-import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
-import net.schwarzbaer.java.tools.alphachareditor.LineForm.FormType;
+import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
+import net.schwarzbaer.java.tools.lineeditor.LineForm.FormType;
 
 class MainWindow extends StandardMainWindow {
 	private static final long serialVersionUID = 313126168052969131L;

@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import java.awt.Dimension;
 import java.awt.Point;
@@ -22,7 +22,7 @@ import javax.swing.UnsupportedLookAndFeelException;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.system.Settings;
-import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
+import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine;
 
 public class AlphaCharEditor {
 	

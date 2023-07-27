@@ -1,4 +1,4 @@
-package net.schwarzbaer.java.tools.alphachareditor;
+package net.schwarzbaer.java.tools.lineeditor;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.function.BiConsumer;
 
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
-import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
+import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 
 interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
 
