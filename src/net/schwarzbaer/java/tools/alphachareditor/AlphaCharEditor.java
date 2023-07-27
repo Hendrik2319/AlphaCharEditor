@@ -19,8 +19,8 @@ import java.util.function.Supplier;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
-import net.schwarzbaer.java.lib.image.alphachar.AlphaCharIO;
-import net.schwarzbaer.java.lib.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
+import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.system.Settings;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
 

@@ -51,8 +51,8 @@ import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.Disabler;
 import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.gui.StandardMainWindow;
-import net.schwarzbaer.java.lib.image.alphachar.AlphaCharIO;
-import net.schwarzbaer.java.lib.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
+import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.GuideLine;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.FormType;
 

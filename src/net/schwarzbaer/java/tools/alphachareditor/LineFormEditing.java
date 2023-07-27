@@ -36,7 +36,7 @@ import javax.swing.table.TableCellEditor;
 
 import net.schwarzbaer.java.lib.gui.Tables;
 import net.schwarzbaer.java.lib.gui.Tables.SimplifiedColumnConfig;
-import net.schwarzbaer.java.lib.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc;
 import net.schwarzbaer.java.tools.alphachareditor.LineForm.Arc.ArcPoint;

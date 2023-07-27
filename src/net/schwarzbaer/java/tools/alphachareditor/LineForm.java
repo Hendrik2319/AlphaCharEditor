@@ -9,7 +9,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import java.util.function.BiConsumer;
 
-import net.schwarzbaer.java.lib.image.alphachar.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.tools.alphachareditor.EditorView.ViewState;
 
 interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
