@@ -38,10 +38,6 @@ import net.schwarzbaer.java.tools.lineeditor.LineForm.FormType;
 
 public class LineEditor
 {
-	static void Assert(boolean condition) {
-		if (!condition) throw new IllegalStateException();
-	}
-	
 	public interface Context
 	{
 		void switchOptionsPanel(JComponent panel);
@@ -56,7 +52,7 @@ public class LineEditor
 	private final EditorViewContextMenu editorViewContextMenu;
 	private GuideLinesStorage guideLinesStorage;
 
-	public LineEditor(Context context) {
+	public LineEditor(Context context, EditorViewFeature... features) {
 		guideLinesStorage = new GuideLinesStorage();
 		
 		generalOptionPanel = new GeneralOptionPanel(new GeneralOptionPanel.Context() {
@@ -125,7 +121,7 @@ public class LineEditor
 		});
 		generalOptionPanel.setPreferredSize(new Dimension(200, 200));
 		
-		editorView = new EditorView(new EditorView.Context() {
+		editorView = new EditorView(features, new EditorView.Context() {
 			@Override public void updateHighlightedForms(HashSet<LineForm<?>> forms) {
 				if (lineforms==null)
 					generalOptionPanel.setSelectedForms(new int[0]);
@@ -147,7 +143,7 @@ public class LineEditor
 			}
 		});
 		editorView.setPreferredSize(500, 500);
-		editorViewContextMenu = new EditorViewContextMenu(editorView);
+		editorViewContextMenu = new EditorViewContextMenu(editorView, features);
 	}
 	
 	public Component getEditorView()
@@ -190,6 +186,12 @@ public class LineEditor
 	static JMenuItem createMenuItem(String title, ActionListener al) {
 		JMenuItem comp = new JMenuItem(title);
 		if (al!=null) comp.addActionListener(al);
+		return comp;
+	}
+
+	static JCheckBoxMenuItem createCheckBoxMI(String title, boolean isSelected, Consumer<Boolean> setValue) {
+		JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, isSelected);
+		if (setValue!=null) comp.addActionListener(e->setValue.accept(comp.isSelected()));
 		return comp;
 	}
 
@@ -568,38 +570,23 @@ public class LineEditor
 		private static final long serialVersionUID = 1271594755142232548L;
 		private final JCheckBoxMenuItem miStickToGuideLines;
 		private final JCheckBoxMenuItem miStickToFormPoints;
-		private final JCheckBoxMenuItem miShowThickLines;
-		private EditorView editorView;
+		private final EditorView editorView;
+		private final EditorViewFeature[] features;
 
-		public EditorViewContextMenu(EditorView editorView) {
+		public EditorViewContextMenu(EditorView editorView, EditorViewFeature[] features) {
 			this.editorView = editorView;
+			this.features = features;
 			add(miStickToGuideLines = createCheckBoxMI("Stick to GuideLines" , editorView.isStickToGuideLines(), editorView::setStickToGuideLines));
 			add(miStickToFormPoints = createCheckBoxMI("Stick to Form Points", editorView.isStickToFormPoints(), editorView::setStickToFormPoints));
-			addSeparator();
-			add(miShowThickLines    = createCheckBoxMI("Show Thick Lines"    , editorView.isShowThickLines   (), editorView::setShowThickLines   ));
-			add(createMenuItem("Set line width ...", e->{
-				float width = editorView.getThickLinesWidth();
-				String result = JOptionPane.showInputDialog(editorView, "Set width of thick lines:", width);
-				if (result!=null) {
-					try { editorView.setThickLinesWidth(Float.parseFloat(result)); }
-					catch (NumberFormatException e1) {
-						String message = "Error: Can't convert input into numeric value.";
-						JOptionPane.showMessageDialog(editorView, message, "Error", JOptionPane.ERROR_MESSAGE);
-					}
-				}
-			}));
-		}
-		
-		private JCheckBoxMenuItem createCheckBoxMI(String title, boolean isSelected, Consumer<Boolean> setValue) {
-			JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, isSelected);
-			if (setValue!=null) comp.addActionListener(e->setValue.accept(comp.isSelected()));
-			return comp;
+			for (EditorViewFeature feature : this.features)
+				feature.addToEditorViewContextMenu(this);
 		}
 
 		public void prepareToShow() {
 			miStickToGuideLines.setSelected(editorView.isStickToGuideLines());
 			miStickToFormPoints.setSelected(editorView.isStickToFormPoints());
-			miShowThickLines   .setSelected(editorView.isShowThickLines   ());
+			for (EditorViewFeature feature : this.features)
+				feature.prepareContextMenuToShow();
 		}
 		
 	}

@@ -9,16 +9,12 @@ import java.awt.geom.Rectangle2D;
 import java.util.Locale;
 import java.util.function.BiConsumer;
 
+import net.schwarzbaer.java.lib.gui.ZoomableCanvas.ViewState;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.image.linegeometry.Math2;
-import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 
-interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {
+interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType>, EditorViewFeature.FeatureLineForm {
 
-	static void Assert(boolean condition) {
-		if (!condition) throw new IllegalStateException();
-	}
-	
 	static final Stroke STROKE_HIGHLIGHTED = new BasicStroke(1.5f,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND);
 	static final Stroke STROKE_STANDARD    = new BasicStroke(1f);
 	static final Color COLOR_HIGHLIGHTED = Color.BLUE;
@@ -53,8 +49,8 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		g2.setStroke(prevStroke);
 	}
 	
-	void drawLines (Graphics2D g2, ViewState viewState);
-	void drawPoints(Graphics2D g2, ViewState viewState);
+	@Override void drawLines (Graphics2D g2, ViewState viewState);
+	@Override void drawPoints(Graphics2D g2, ViewState viewState);
 	Double getDistance(double x, double y, double maxDist);
 	LineForm<HighlightPointType> setValues(double[] values);
 	void mirror(MirrorDirection dir, double pos);
@@ -62,7 +58,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 	void forEachPoint(BiConsumer<Double,Double> action);
 
 	static LineForm<?> convert(Form form) {
-		Assert(form instanceof LineForm);
+		Debug.Assert(form instanceof LineForm);
 		return (LineForm<?>) form;
 	}
 
@@ -70,7 +66,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		if (form instanceof PolyLine) return (PolyLine) form;
 		if (form instanceof Line    ) return (Line    ) form;
 		if (form instanceof Arc     ) return (Arc     ) form;
-		Assert(false);
+		Debug.Assert(false);
 		return null;
 	}
 
@@ -91,7 +87,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 		if (form instanceof PolyLine) return new PolyLine().setValues( ((PolyLine)form).getValues() );
 		if (form instanceof Line    ) return new Line    ().setValues( ((Line    )form).getValues() );
 		if (form instanceof Arc     ) return new Arc     ().setValues( ((Arc     )form).getValues() );
-		Assert(false);
+		Debug.Assert(false);
 		return null;
 	}
 
@@ -378,7 +374,7 @@ interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<High
 				this.type = type;
 				this.x = x;
 				this.y = y;
-				Assert(this.type!=null);
+				Debug.Assert(this.type!=null);
 			}
 			
 			void set(Point2D.Float p) {

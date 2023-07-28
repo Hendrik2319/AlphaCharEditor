@@ -1,7 +1,9 @@
 package net.schwarzbaer.java.tools.alphachareditor;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -22,23 +24,29 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
 import net.schwarzbaer.java.lib.gui.Canvas;
 import net.schwarzbaer.java.lib.gui.FileChooser;
 import net.schwarzbaer.java.lib.gui.StandardMainWindow;
+import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
 import net.schwarzbaer.java.lib.image.linegeometry.AlphaCharIO;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
 import net.schwarzbaer.java.lib.system.Settings.DefaultAppSettings;
+import net.schwarzbaer.java.tools.lineeditor.EditorViewFeature;
 import net.schwarzbaer.java.tools.lineeditor.LineEditor;
 import net.schwarzbaer.java.tools.lineeditor.LineEditor.GuideLinesStorage;
 
@@ -94,25 +102,28 @@ public class AlphaCharEditor {
 		mainWindow = new StandardMainWindow("AlphaChar Editor");
 		leftPanel = new JPanel(new BorderLayout(3,3));
 		
-		lineEditor = new LineEditor(new LineEditor.Context() {
-			@Override public void switchOptionsPanel(JComponent panel)
-			{
-				if (valuePanel!=null) leftPanel.remove(valuePanel);
-				valuePanel = panel;
-				if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
-				leftPanel.revalidate();
-				leftPanel.repaint();
-			}
-			@Override public boolean canCreateNewForm()
-			{
-				return selectedChar!=null;
-			}
-			@Override public void replaceForms(Form[] forms)
-			{
-				project.font.put(selectedChar, forms);
-				charRaster.updateCharList(project.font,selectedChar);
-			}
-		});
+		lineEditor = new LineEditor(
+				new LineEditor.Context() {
+					@Override public void switchOptionsPanel(JComponent panel)
+					{
+						if (valuePanel!=null) leftPanel.remove(valuePanel);
+						valuePanel = panel;
+						if (valuePanel!=null) leftPanel.add(valuePanel,BorderLayout.CENTER);
+						leftPanel.revalidate();
+						leftPanel.repaint();
+					}
+					@Override public boolean canCreateNewForm()
+					{
+						return selectedChar!=null;
+					}
+					@Override public void replaceForms(Form[] forms)
+					{
+						project.font.put(selectedChar, forms);
+						charRaster.updateCharList(project.font,selectedChar);
+					}
+				},
+				new ThickLines()
+		);
 		valuePanel = lineEditor.getInitialOptionsPanel();
 		
 		selectedChar = null;
@@ -239,6 +250,11 @@ public class AlphaCharEditor {
 	static JMenuItem createMenuItem(String title, ActionListener al) {
 		JMenuItem comp = new JMenuItem(title);
 		if (al!=null) comp.addActionListener(al);
+		return comp;
+	}
+	static JCheckBoxMenuItem createCheckBoxMI(String title, boolean isSelected, Consumer<Boolean> setValue) {
+		JCheckBoxMenuItem comp = new JCheckBoxMenuItem(title, isSelected);
+		if (setValue!=null) comp.addActionListener(e->setValue.accept(comp.isSelected()));
 		return comp;
 	}
 
@@ -582,6 +598,76 @@ public class AlphaCharEditor {
 					++iy;
 				}
 				
+			}
+		}
+		
+	}
+	
+	private static class ThickLines implements EditorViewFeature
+	{
+		private static final Color COLOR_THICKLINES  = new Color(0xf0f0f0);
+		private static final Color COLOR_THICKLINES2 = new Color(0xe0e0e0);
+		private static final Color COLOR_THICKLINES3 = new Color(0xd0d0d0);
+		
+		private boolean showThickLines = true;
+		private float thickLinesWidth = 20f;
+		private JCheckBoxMenuItem miShowThickLines = null;
+		private Component editorView = null;
+		
+		@Override
+		public void setEditorView(Component editorView)
+		{
+			this.editorView = editorView;
+		}
+		
+		private boolean isShowThickLines  () { return showThickLines ; }
+		private float   getThickLinesWidth() { return thickLinesWidth; }
+		private void setShowThickLines (boolean showThickLines ) { this.showThickLines  = showThickLines ; editorView.repaint(); }
+		private void setThickLinesWidth(float   thickLinesWidth) { this.thickLinesWidth = thickLinesWidth; editorView.repaint(); }
+
+		@Override
+		public void addToEditorViewContextMenu(JPopupMenu contextMenu)
+		{
+			contextMenu.addSeparator();
+			contextMenu.add(miShowThickLines = createCheckBoxMI("Show Thick Lines", isShowThickLines(), this::setShowThickLines   ));
+			contextMenu.add(createMenuItem("Set line width ...", e->{
+				float width = getThickLinesWidth();
+				String result = JOptionPane.showInputDialog(editorView, "Set width of thick lines:", width);
+				if (result!=null) {
+					try { setThickLinesWidth(Float.parseFloat(result)); }
+					catch (NumberFormatException e1) {
+						String message = "Error: Can't convert input into numeric value.";
+						JOptionPane.showMessageDialog(editorView, message, "Error", JOptionPane.ERROR_MESSAGE);
+					}
+				}
+			}));
+		}
+		
+		@Override
+		public void prepareContextMenuToShow()
+		{
+			miShowThickLines.setSelected(isShowThickLines());
+		}
+		
+		@Override
+		public void draw(Graphics2D g2, int x, int y, int width, int height, ZoomableCanvas.ViewState viewState, Iterable<? extends FeatureLineForm> forms)
+		{
+			if (forms!=null && showThickLines) {
+				float lineWidth = viewState.convertLength_LengthToScreenF((double) thickLinesWidth).floatValue();
+				
+				g2.setColor(COLOR_THICKLINES);
+				g2.setStroke(new BasicStroke(lineWidth,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (FeatureLineForm form : forms) form.drawLines(g2,viewState);
+				
+				g2.setColor(COLOR_THICKLINES2);
+				g2.setStroke(new BasicStroke(lineWidth/3*2,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (FeatureLineForm form : forms) form.drawLines(g2,viewState);
+				
+				g2.setColor(COLOR_THICKLINES3);
+				g2.setStroke(new BasicStroke(lineWidth/3,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+				for (FeatureLineForm form : forms) form.drawLines(g2,viewState);
+				
+				g2.setStroke(new BasicStroke(1f));
 			}
 		}
 		

@@ -1,6 +1,5 @@
 package net.schwarzbaer.java.tools.lineeditor;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -11,6 +10,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -23,42 +23,39 @@ import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
 import net.schwarzbaer.java.lib.image.linegeometry.Math2;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine.Type;
 
-public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
+class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	
 	static final int MAX_NEAR_DISTANCE = 20;
 	static final int MAX_GUIDELINE_DISTANCE = 3;
 
-	static void Assert(boolean condition) {
-		if (!condition) throw new IllegalStateException();
-	}
-	
 	private static final long serialVersionUID = -2936567438026759797L;
 	
 	private static final Color COLOR_AXIS       = new Color(0x70000000,true);
 	private static final Color COLOR_BACKGROUND = Color.WHITE;
 	private static final Color COLOR_GUIDELINES             = new Color(0x2f7f7f7f,true);
 	private static final Color COLOR_GUIDELINES_HIGHLIGHTED = new Color(0xb5f0b5);
-	private static final Color COLOR_THICKLINES  = new Color(0xf0f0f0);
-	private static final Color COLOR_THICKLINES2 = new Color(0xe0e0e0);
-	private static final Color COLOR_THICKLINES3 = new Color(0xd0d0d0);
 	private static final Color COLOR_POINT_FILL             = Color.WHITE;
 	private static final Color COLOR_POINT_FILL_HIGHLIGHTED = Color.GREEN;
 	private static final Color COLOR_POINT_CONTOUR          = Color.BLACK;
 
 	private LineForm<?>[] forms = null;
 	private Vector<GuideLine> guideLines = null;
-	private HashSet<LineForm<?>> highlightedForms = new HashSet<>();
+	private final HashSet<LineForm<?>> highlightedForms = new HashSet<>();
 	private LineFormEditing<?> formEditing = null;
-	private GuideLine highlightedGuideLine;
+	private GuideLine highlightedGuideLine = null;
 	private final Context context;
 	private boolean stickToGuideLines = true;
 	private boolean stickToFormPoints = true;
-	private boolean showThickLines = true;
-	private float thickLinesWidth = 20f;
+	private final EditorViewFeature[] features;
 	
-	EditorView(Context context) {
+	EditorView(EditorViewFeature[] features, Context context) {
+		this.features = features;
 		this.context = context;
-		Assert(this.context!=null);
+		Debug.Assert(this.context!=null);
+		
+		for (EditorViewFeature feature : features)
+			feature.setEditorView(this);
+		
 		activateMapScale(COLOR_AXIS, "px");
 		activateAxes(COLOR_AXIS, true,true,true,true);
 		addKeyListener(new KeyListener() {
@@ -70,13 +67,8 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 
 	boolean isStickToGuideLines() { return stickToGuideLines; }
 	boolean isStickToFormPoints() { return stickToFormPoints; }
-	boolean isShowThickLines   () { return showThickLines   ; }
 	void setStickToGuideLines(boolean stickToGuideLines) { this.stickToGuideLines = stickToGuideLines; repaint(); }
 	void setStickToFormPoints(boolean stickToFormPoints) { this.stickToFormPoints = stickToFormPoints; repaint(); }
-	void setShowThickLines   (boolean showThickLines   ) { this.showThickLines    = showThickLines   ; repaint(); }
-
-	float getThickLinesWidth()            { return thickLinesWidth; }
-	void  setThickLinesWidth(float width) { thickLinesWidth = width; repaint(); }
 
 	void setGuideLines(Vector<GuideLine> guideLines) {
 		this.guideLines = guideLines;
@@ -261,24 +253,10 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			g2.setClip(x, y, width, height);
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			//g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-
-			if (forms!=null && showThickLines) {
-				float lineWidth = viewState.convertLength_LengthToScreenF((double) thickLinesWidth).floatValue();
-				
-				g2.setColor(COLOR_THICKLINES);
-				g2.setStroke(new BasicStroke(lineWidth,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
-				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
-				
-				g2.setColor(COLOR_THICKLINES2);
-				g2.setStroke(new BasicStroke(lineWidth/3*2,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
-				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
-				
-				g2.setColor(COLOR_THICKLINES3);
-				g2.setStroke(new BasicStroke(lineWidth/3,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
-				for (LineForm<?> form:forms) form.drawLines(g2,viewState);
-				
-				g2.setStroke(new BasicStroke(1f));
-			}
+			
+			if (forms!=null)
+				for (EditorViewFeature feature : features)
+					feature.draw(g2, x, y, width, height, viewState, Arrays.asList(forms));
 			
 			if (guideLines!=null)
 				for (GuideLine gl:guideLines) {
@@ -378,7 +356,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		GuideLine(Type type, double pos) {
 			this.type = type;
 			this.pos = pos;
-			Assert(this.type!=null);
+			Debug.Assert(this.type!=null);
 		}
 
 		@Override

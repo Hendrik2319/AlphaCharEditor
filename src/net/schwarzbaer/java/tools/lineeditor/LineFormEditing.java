@@ -48,10 +48,6 @@ import net.schwarzbaer.java.tools.lineeditor.LineForm.Line.LinePoint;
 
 abstract class LineFormEditing<HighlightedPointType> {
 
-	static void Assert(boolean condition) {
-		if (!condition) throw new IllegalStateException();
-	}
-
 	static String toString(double[] values, DoubleFunction<? extends String> mapper) {
 		return Arrays.toString(toStringArr(values, mapper));
 	}
@@ -106,7 +102,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			int xs = viewState.convertPos_AngleToScreen_LongX((float) getSelectedPointX(selectedPoint));
 			int ys = viewState.convertPos_AngleToScreen_LatY ((float) getSelectedPointY(selectedPoint));
 			pickOffset = new Point(xs-x, ys-y);
-			Assert(pickOffset!=null);
+			Debug.Assert(pickOffset!=null);
 			editorView.repaint();
 			return true;
 		}
@@ -286,7 +282,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			case P1: return (float) line.x1;
 			case P2: return (float) line.x2;
 			}
-			Assert(false);
+			Debug.Assert(false);
 			return 0;
 		}
 
@@ -295,7 +291,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 			case P1: return (float) line.y1;
 			case P2: return (float) line.y2;
 			}
-			Assert(false);
+			Debug.Assert(false);
 			return 0;
 		}
 
@@ -520,7 +516,7 @@ abstract class LineFormEditing<HighlightedPointType> {
 		
 		private PolyLineEditing(PolyLine polyLine, ViewState viewState, EditorView editorView, MouseEvent e) {
 			super(polyLine, viewState, editorView);
-			Assert(polyLine!=null);
+			Debug.Assert(polyLine!=null);
 			this.polyLine = polyLine;
 			this.polyLine.setHighlightedPoint(e==null ? null : getNext(e.getX(),e.getY()));
 			this.polyLine.setHighlightListener(this);
