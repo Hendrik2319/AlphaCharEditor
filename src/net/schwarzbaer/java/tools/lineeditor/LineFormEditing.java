@@ -37,6 +37,7 @@ import javax.swing.table.TableCellEditor;
 import net.schwarzbaer.java.lib.gui.Tables;
 import net.schwarzbaer.java.lib.gui.Tables.SimplifiedColumnConfig;
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.Math2;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 import net.schwarzbaer.java.tools.lineeditor.LineForm.Arc;
 import net.schwarzbaer.java.tools.lineeditor.LineForm.Line;

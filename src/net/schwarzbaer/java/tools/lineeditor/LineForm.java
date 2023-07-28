@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.function.BiConsumer;
 
 import net.schwarzbaer.java.lib.image.linegeometry.Form;
+import net.schwarzbaer.java.lib.image.linegeometry.Math2;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.ViewState;
 
 interface LineForm<HighlightPointType> extends LineFormEditing.EditableForm<HighlightPointType> {

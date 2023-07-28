@@ -20,6 +20,7 @@ import java.util.function.BiConsumer;
 import javax.swing.JPanel;
 
 import net.schwarzbaer.java.lib.gui.ZoomableCanvas;
+import net.schwarzbaer.java.lib.image.linegeometry.Math2;
 import net.schwarzbaer.java.tools.lineeditor.EditorView.GuideLine.Type;
 
 public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
