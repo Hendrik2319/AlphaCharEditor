@@ -242,7 +242,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		return nearest;
 	}
 
-	public Rectangle2D.Float getViewRectangle() {
+	Rectangle2D.Float getViewRectangle() {
 		Rectangle2D.Float rect = new Rectangle2D.Float();
 		rect.x      = (float) viewState.convertPos_ScreenToAngle_LongX(0);
 		rect.y      = (float) viewState.convertPos_ScreenToAngle_LatY (0);
@@ -323,7 +323,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 	}
 	class ViewState extends ZoomableCanvas.ViewState {
 		
-		ViewState(ZoomableCanvas<?> canvas) {
+		private ViewState(ZoomableCanvas<?> canvas) {
 			super(canvas,0.1f);
 			setPlainMapSurface();
 			setVertAxisDownPositive(true);
@@ -339,27 +339,21 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 	}
 	
-	static class GuideResult {
-		final Double x,y;
-		final double dist;
-		private GuideResult(Double x, Double y, double dist) {
-			this.x = x;
-			this.y = y;
-			this.dist = dist;
-		}
+	private record GuideResult(Double x, Double y, double dist)
+	{
 		@Override
 		public String toString() {
 			String xStr = x==null?"":String.format(Locale.ENGLISH, "X:%1.3f, ", x);
 			String yStr = y==null?"":String.format(Locale.ENGLISH, "Y:%1.3f, ", y);
 			return String.format("(%s%sdist:%1.3f)", xStr, yStr, dist);
 		}
-		
 	}
 	
-	static class TempGuideResult {
+	private static class TempGuideResult
+	{
 		double x,y;
 		Double dist;
-		private TempGuideResult() {
+		TempGuideResult() {
 			this.x = 0;
 			this.y = 0;
 			this.dist = null;
@@ -370,18 +364,18 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 		}
 	}
 	
-	public static class GuideLine {
+	static class GuideLine {
 		
-		public enum Type { // TODO: public ?
+		enum Type {
 			Horizontal("Y"), Vertical("X");
 			final String axis;
 			Type(String axis) { this.axis = axis; }
 		}
 
-		public final Type type; // TODO: public ?
-		public double pos; // TODO: public ?
+		final Type type;
+		double pos;
 		
-		public GuideLine(Type type, double pos) { // TODO: public ?
+		GuideLine(Type type, double pos) {
 			this.type = type;
 			this.pos = pos;
 			Assert(this.type!=null);
@@ -392,7 +386,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			return String.format(Locale.ENGLISH, "%s GuideLine @ %s:%1.2f", type, type.axis, pos);
 		}
 
-		static GuideResult stickToGuideLines(double val, Type type, double maxDist, Vector<GuideLine> lines) {
+		private static GuideResult stickToGuideLines(double val, Type type, double maxDist, Vector<GuideLine> lines) {
 			Double dist = null;
 			Double pos = null;
 			if (lines!=null)
@@ -412,7 +406,7 @@ public class EditorView extends ZoomableCanvas<EditorView.ViewState> {
 			return null;
 		}
 
-		public void draw(ViewState viewState, Graphics2D g2, int x, int y, int width, int height) {
+		private void draw(ViewState viewState, Graphics2D g2, int x, int y, int width, int height) {
 			switch (type) {
 			case Horizontal:
 				int yl = viewState.convertPos_AngleToScreen_LatY(pos);
