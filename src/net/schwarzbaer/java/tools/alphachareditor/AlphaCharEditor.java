@@ -121,6 +121,8 @@ public class AlphaCharEditor {
 						project.font.put(selectedChar, forms);
 						charRaster.updateCharList(project.font,selectedChar);
 					}
+					@Override public void guideLinesChanged(LineEditor.GuideLinesChangedEvent e) {}
+					@Override public void formsChanged(LineEditor.FormsChangedEvent e) {}
 				},
 				new ThickLines()
 		);
