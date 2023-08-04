@@ -12,6 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Rectangle2D;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -102,7 +103,12 @@ public class AlphaCharEditor {
 		mainWindow = new StandardMainWindow("AlphaChar Editor");
 		leftPanel = new JPanel(new BorderLayout(3,3));
 		
+//		min.latitude_y  =  -50.0;
+//		min.longitude_x = -100.0;
+//		max.latitude_y  =  150.0;
+//		max.longitude_x =  300.0;
 		lineEditor = new LineEditor(
+				new Rectangle2D.Double(-100,-50,400,200),
 				new LineEditor.Context() {
 					@Override public void switchOptionsPanel(JComponent panel)
 					{
