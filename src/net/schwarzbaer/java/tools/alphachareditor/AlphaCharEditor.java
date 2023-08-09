@@ -118,17 +118,19 @@ public class AlphaCharEditor {
 						leftPanel.revalidate();
 						leftPanel.repaint();
 					}
-					@Override public boolean canCreateNewForm()
+					@Override public boolean canModifyFormsList()
 					{
 						return selectedChar!=null;
 					}
-					@Override public void replaceForms(Form[] forms)
-					{
-						project.font.put(selectedChar, forms);
-						charRaster.updateCharList(project.font,selectedChar);
-					}
 					@Override public void guideLinesChanged(LineEditor.GuideLinesChangedEvent e) {}
-					@Override public void formsChanged(LineEditor.FormsChangedEvent e) {}
+					@Override public void formsChanged(LineEditor.FormsChangedEvent e) {
+						Form[] newFormsList = e.newFormsList();
+						if (newFormsList!=null)
+						{
+							project.font.put(selectedChar, newFormsList);
+							charRaster.updateCharList(project.font,selectedChar);
+						}
+					}
 				},
 				new ThickLines()
 		);
